@@ -285,7 +285,8 @@ func main() {
 
 	// 初始化 OTA 更新器
 	appUpdater := updater.New(Version, func() {
-		syscall.Kill(os.Getpid(), syscall.SIGTERM)
+		p, _ := os.FindProcess(os.Getpid())
+		p.Signal(os.Interrupt)
 	})
 	if envCfg.AutoCheckUpdate {
 		go func() {
