@@ -272,14 +272,9 @@ fetchAllChannels()
 }
 .conversation-masonry {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 16px;
   align-items: start;
-}
-@media (min-width: 960px) {
-  .conversation-masonry {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 .system-status-indicator {
   display: inline-flex;
