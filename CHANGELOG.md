@@ -14,6 +14,7 @@
 
 ### 修复
 
+- **Claude 协议空 Text Block 兼容开关** - 修复严格校验的第三方 Claude 协议上游因 Claude Code 在 `tool_use` 前插入裸空 `{"type":"text","text":""}` 占位块而返回 400 的兼容性问题；新增 Messages 渠道 `stripEmptyTextBlocks` 开关，在转发前按需移除空 text block，并同步接通前端配置、渠道视图与回归测试。
 - **Responses SSE keep-alive** - 为 Responses 流式代理增加 SSE keep-alive 机制，每 15 秒向下游发送 `: keepalive` 注释行，防止 DeepSeek 等慢上游思考期间触发 Codex 客户端 idle timeout 断连 (#67)
 
 ## [v2.7.0] - 2026-05-17

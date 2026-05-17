@@ -49,6 +49,8 @@ type UpstreamConfig struct {
 	AutoBlacklistBalance *bool `json:"autoBlacklistBalance,omitempty"` // 余额不足时自动拉黑 Key（默认 true）
 	// metadata.user_id 规范化开关
 	NormalizeMetadataUserID *bool `json:"normalizeMetadataUserId,omitempty"` // 规范化 metadata.user_id（默认 true）
+	// Claude 协议空文本兼容
+	StripEmptyTextBlocks bool `json:"stripEmptyTextBlocks,omitempty"` // 转发前移除裸空 text content block（兼容严格校验的第三方 Claude 上游）
 	// Gemini 特定配置
 	InjectDummyThoughtSignature bool `json:"injectDummyThoughtSignature,omitempty"` // 给空 thought_signature 注入 dummy 值（兼容 x666.me 等要求必须有该字段的 API）
 	StripThoughtSignature       bool `json:"stripThoughtSignature,omitempty"`       // 移除 thought_signature 字段（兼容旧版 Gemini API）
@@ -138,6 +140,8 @@ type UpstreamUpdate struct {
 	LowQuality              *bool      `json:"lowQuality"`
 	AutoBlacklistBalance    *bool      `json:"autoBlacklistBalance"`
 	NormalizeMetadataUserID *bool      `json:"normalizeMetadataUserId"`
+	// Claude 协议空文本兼容
+	StripEmptyTextBlocks *bool `json:"stripEmptyTextBlocks"`
 	// Gemini 特定配置
 	InjectDummyThoughtSignature *bool `json:"injectDummyThoughtSignature"`
 	StripThoughtSignature       *bool `json:"stripThoughtSignature"`

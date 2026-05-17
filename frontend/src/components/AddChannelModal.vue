@@ -869,6 +869,20 @@
               </div>
             </v-col>
 
+            <!-- 移除空 Text Block（仅 Messages 渠道 + claude 服务类型显示） -->
+            <v-col v-if="props.channelType === 'messages' && form.serviceType === 'claude'" cols="12">
+              <div class="d-flex align-center justify-space-between ga-5">
+                <div class="d-flex align-center ga-2" style="min-width: 0; flex: 1 1 auto;">
+                  <v-icon color="warning">mdi-filter-remove</v-icon>
+                  <div style="min-width: 0;">
+                    <div class="section-title section-title--soft">{{ t('addChannel.stripEmptyTextBlocksLabel') }}</div>
+                    <div class="text-caption text-medium-emphasis" style="word-break: break-word;">{{ t('addChannel.stripEmptyTextBlocksHint') }}</div>
+                  </div>
+                </div>
+                <v-switch v-model="form.stripEmptyTextBlocks" inset color="warning" hide-details style="flex-shrink: 0;" />
+              </div>
+            </v-col>
+
             <!-- 自定义请求头 -->
             <v-col cols="12">
               <v-card variant="outlined">
@@ -1678,6 +1692,7 @@ const form = reactive({
   injectDummyThoughtSignature: false,
   stripThoughtSignature: false,
   passbackReasoningContent: false,
+  stripEmptyTextBlocks: false,
   description: '',
   apiKeys: [] as string[],
   modelMapping: {} as Record<string, string>,
@@ -1996,6 +2011,7 @@ const hasEditableDraftChanges = computed(() => {
     injectDummyThoughtSignature: !!props.channel.injectDummyThoughtSignature,
     stripThoughtSignature: !!props.channel.stripThoughtSignature,
     passbackReasoningContent: !!props.channel.passbackReasoningContent,
+    stripEmptyTextBlocks: !!props.channel.stripEmptyTextBlocks,
     description: (props.channel.description || '').trim(),
     apiKeys: normalizeStringArray(props.channel.apiKeys || []),
     modelMapping: Object.fromEntries(Object.entries(props.channel.modelMapping || {}).sort(([a], [b]) => a.localeCompare(b))),
@@ -2070,6 +2086,8 @@ const resetForm = () => {
   form.lowQuality = false
   form.injectDummyThoughtSignature = false
   form.stripThoughtSignature = false
+  form.passbackReasoningContent = false
+  form.stripEmptyTextBlocks = false
   form.description = ''
   form.apiKeys = []
   form.modelMapping = {}
@@ -2126,6 +2144,8 @@ const loadChannelData = (channel: Channel) => {
   form.lowQuality = !!channel.lowQuality
   form.injectDummyThoughtSignature = !!channel.injectDummyThoughtSignature
   form.stripThoughtSignature = !!channel.stripThoughtSignature
+  form.passbackReasoningContent = !!channel.passbackReasoningContent
+  form.stripEmptyTextBlocks = !!channel.stripEmptyTextBlocks
   form.description = channel.description || ''
 
   // 同步 baseUrlsText（优先使用 baseUrls，否则使用 baseUrl），保留用户显式配置的原始 URL 形式
@@ -2546,7 +2566,7 @@ const PAYLOAD_KEYS = [
   'lowQuality', 'injectDummyThoughtSignature', 'stripThoughtSignature', 'description',
   'apiKeys', 'modelMapping', 'reasoningMapping', 'reasoningParamStyle', 'textVerbosity',
   'fastMode', 'customHeaders', 'proxyUrl', 'routePrefix', 'supportedModels',
-  'autoBlacklistBalance', 'normalizeMetadataUserId', 'codexNativeToolPassthrough',
+  'autoBlacklistBalance', 'normalizeMetadataUserId', 'stripEmptyTextBlocks', 'codexNativeToolPassthrough',
   'codexToolCompat', 'normalizeNonstandardChatRoles', 'stripCodexClientTools'
 ] as const
 

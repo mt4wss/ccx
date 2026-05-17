@@ -273,6 +273,79 @@ func TestGetChannelDashboard_Gemini_IncludesAdvancedOptionFields(t *testing.T) {
 	if got := resp.Channels[0]["normalizeMetadataUserId"]; got != true {
 		t.Fatalf("normalizeMetadataUserId=%v, want=true", got)
 	}
+	if got := resp.Channels[0]["stripEmptyTextBlocks"]; got != nil {
+		t.Fatalf("gemini channel should not expose stripEmptyTextBlocks, got=%v", got)
+	}
+}
+
+func TestGetChannelDashboard_MessagesIncludesStripEmptyTextBlocks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := config.Config{
+		Upstream: []config.UpstreamConfig{{
+			Name:                 "msg-claude",
+			ServiceType:          "claude",
+			BaseURL:              "https://example.com",
+			APIKeys:              []string{"sk-test"},
+			StripEmptyTextBlocks: true,
+		}},
+	}
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.json")
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatalf("序列化配置失败: %v", err)
+	}
+	if err := os.WriteFile(configFile, data, 0644); err != nil {
+		t.Fatalf("写入配置文件失败: %v", err)
+	}
+
+	cfgManager, err := config.NewConfigManager(configFile)
+	if err != nil {
+		t.Fatalf("创建配置管理器失败: %v", err)
+	}
+	defer cfgManager.Close()
+
+	messagesMetrics := metrics.NewMetricsManager()
+	responsesMetrics := metrics.NewMetricsManager()
+	geminiMetrics := metrics.NewMetricsManager()
+	chatMetrics := metrics.NewMetricsManager()
+	imagesMetrics := metrics.NewMetricsManager()
+	defer messagesMetrics.Stop()
+	defer responsesMetrics.Stop()
+	defer geminiMetrics.Stop()
+	defer chatMetrics.Stop()
+	defer imagesMetrics.Stop()
+
+	traceAffinity := session.NewTraceAffinityManager()
+	defer traceAffinity.Stop()
+	urlManager := warmup.NewURLManager(30*time.Second, 3)
+	sch := scheduler.NewChannelScheduler(cfgManager, messagesMetrics, responsesMetrics, geminiMetrics, chatMetrics, imagesMetrics, traceAffinity, urlManager)
+
+	r := gin.New()
+	r.GET("/messages/channels/dashboard", GetChannelDashboard(cfgManager, sch))
+
+	req := httptest.NewRequest(http.MethodGet, "/messages/channels/dashboard?type=messages", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d, want=%d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp struct {
+		Channels []map[string]any `json:"channels"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	if len(resp.Channels) != 1 {
+		t.Fatalf("channels len=%d, want=1", len(resp.Channels))
+	}
+	if got := resp.Channels[0]["stripEmptyTextBlocks"]; got != true {
+		t.Fatalf("stripEmptyTextBlocks=%v, want=true", got)
+	}
 }
 
 func TestGetChannelDashboard_ChatFallbackServiceTypeReadsMetrics(t *testing.T) {

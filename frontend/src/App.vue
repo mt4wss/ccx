@@ -1381,6 +1381,7 @@ const handleCopyToTab = async (targetProtocol: string) => {
     stripThoughtSignature: sourceChannel.stripThoughtSignature,
     passbackReasoningContent: sourceChannel.passbackReasoningContent,
     supportedModels: sourceChannel.supportedModels,
+    stripEmptyTextBlocks: sourceChannel.stripEmptyTextBlocks,
     normalizeNonstandardChatRoles: sourceChannel.normalizeNonstandardChatRoles,
     rpm: sourceChannel.rpm ?? 10,
   }

@@ -713,6 +713,7 @@ func GetChannelDashboard(cfgManager *config.ConfigManager, sch *scheduler.Channe
 
 			if channelType == "messages" {
 				channel["passbackReasoningContent"] = up.PassbackReasoningContent
+				channel["stripEmptyTextBlocks"] = up.StripEmptyTextBlocks
 			}
 
 			channels[i] = channel

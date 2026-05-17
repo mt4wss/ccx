@@ -27,6 +27,8 @@ func GetUpstreams(cfgManager *config.ConfigManager) gin.HandlerFunc {
 		upstreams := make([]gin.H, len(cfg.Upstream))
 		for i, up := range cfg.Upstream {
 			upstreams[i] = common.BuildChannelView(up, i)
+			upstreams[i]["passbackReasoningContent"] = up.PassbackReasoningContent
+			upstreams[i]["stripEmptyTextBlocks"] = up.StripEmptyTextBlocks
 		}
 
 		c.JSON(200, gin.H{

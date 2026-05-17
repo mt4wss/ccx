@@ -9,6 +9,116 @@ import (
 	"github.com/BenedictKing/ccx/internal/types"
 )
 
+func TestStripEmptyTextBlocksFromBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantJSON map[string]interface{}
+	}{
+		{
+			name: "移除 assistant tool_use 前的裸空 text block",
+			input: `{
+				"messages": [
+					{"role": "assistant", "content": [
+						{"type": "text", "text": ""},
+						{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {"command": "pwd"}}
+					]}
+				]
+			}`,
+			wantJSON: map[string]interface{}{
+				"messages": []interface{}{
+					map[string]interface{}{
+						"role": "assistant",
+						"content": []interface{}{
+							map[string]interface{}{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]interface{}{"command": "pwd"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "保留非空 text block",
+			input: `{
+				"messages": [
+					{"role": "assistant", "content": [
+						{"type": "text", "text": "hello"},
+						{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {"command": "pwd"}}
+					]}
+				]
+			}`,
+			wantJSON: map[string]interface{}{
+				"messages": []interface{}{
+					map[string]interface{}{
+						"role": "assistant",
+						"content": []interface{}{
+							map[string]interface{}{"type": "text", "text": "hello"},
+							map[string]interface{}{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]interface{}{"command": "pwd"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "保留带附加字段的空 text block",
+			input: `{
+				"messages": [
+					{"role": "assistant", "content": [
+						{"type": "text", "text": "", "cache_control": {"type": "ephemeral"}},
+						{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {"command": "pwd"}}
+					]}
+				]
+			}`,
+			wantJSON: map[string]interface{}{
+				"messages": []interface{}{
+					map[string]interface{}{
+						"role": "assistant",
+						"content": []interface{}{
+							map[string]interface{}{"type": "text", "text": "", "cache_control": map[string]interface{}{"type": "ephemeral"}},
+							map[string]interface{}{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]interface{}{"command": "pwd"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "不处理 system 空 text",
+			input: `{
+				"system": [{"type": "text", "text": ""}],
+				"messages": [
+					{"role": "user", "content": [{"type": "text", "text": "hello"}]}
+				]
+			}`,
+			wantJSON: map[string]interface{}{
+				"system": []interface{}{map[string]interface{}{"type": "text", "text": ""}},
+				"messages": []interface{}{
+					map[string]interface{}{
+						"role":    "user",
+						"content": []interface{}{map[string]interface{}{"type": "text", "text": "hello"}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := stripEmptyTextBlocksFromBody([]byte(tt.input))
+
+			var got map[string]interface{}
+			if err := json.Unmarshal(result, &got); err != nil {
+				t.Fatalf("unmarshal result: %v", err)
+			}
+
+			gotJSON, _ := json.Marshal(got)
+			wantJSON, _ := json.Marshal(tt.wantJSON)
+
+			if string(gotJSON) != string(wantJSON) {
+				t.Errorf("stripEmptyTextBlocksFromBody() mismatch:\ngot:  %s\nwant: %s", string(gotJSON), string(wantJSON))
+			}
+		})
+	}
+}
+
 // TestConvertThinkingToReasoningContent 测试 thinking 块 → reasoning_content 转换
 func TestConvertThinkingToReasoningContent(t *testing.T) {
 	tests := []struct {

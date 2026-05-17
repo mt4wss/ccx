@@ -209,6 +209,9 @@ func (cm *ConfigManager) UpdateUpstream(index int, updates UpstreamUpdate) (shou
 		v := *updates.NormalizeMetadataUserID
 		upstream.NormalizeMetadataUserID = &v
 	}
+	if updates.StripEmptyTextBlocks != nil {
+		upstream.StripEmptyTextBlocks = *updates.StripEmptyTextBlocks
+	}
 	if updates.CodexNativeToolPassthrough != nil {
 		upstream.CodexNativeToolPassthrough = *updates.CodexNativeToolPassthrough
 	}

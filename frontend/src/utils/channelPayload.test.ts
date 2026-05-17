@@ -27,6 +27,7 @@ describe('buildChannelPayload', () => {
       supportedModels: ['gpt-5'],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -72,6 +73,7 @@ describe('buildChannelPayload', () => {
       supportedModels: [],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -112,6 +114,7 @@ describe('buildChannelPayload', () => {
       supportedModels: [],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -148,6 +151,7 @@ describe('buildChannelPayload', () => {
       supportedModels: [],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -184,6 +188,7 @@ describe('buildChannelPayload', () => {
       supportedModels: ['opus'],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -223,6 +228,7 @@ describe('buildChannelPayload', () => {
       supportedModels: [],
       autoBlacklistBalance: false,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -258,6 +264,7 @@ describe('buildChannelPayload', () => {
       supportedModels: [],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: false,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       noVision: false,
@@ -266,6 +273,42 @@ describe('buildChannelPayload', () => {
     })
 
     expect(result.normalizeMetadataUserId).toBe(false)
+  })
+
+  it('应携带 stripEmptyTextBlocks 开关', () => {
+    const result = buildChannelPayload({
+      name: 'claude-strict-upstream',
+      serviceType: 'claude',
+      baseUrl: 'https://api.example.com/v1',
+      baseUrls: [],
+      website: '',
+      insecureSkipVerify: false,
+      lowQuality: false,
+      injectDummyThoughtSignature: false,
+      stripThoughtSignature: false,
+      passbackReasoningContent: false,
+      description: '',
+      apiKeys: ['sk-1'],
+      modelMapping: {},
+      reasoningMapping: {},
+      reasoningParamStyle: 'reasoning',
+      textVerbosity: '',
+      fastMode: false,
+      customHeaders: {},
+      proxyUrl: '',
+      routePrefix: '',
+      supportedModels: [],
+      autoBlacklistBalance: true,
+      normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: true,
+      codexNativeToolPassthrough: false,
+      codexToolCompat: true,
+      noVision: false,
+      noVisionModels: [],
+      visionFallbackModel: ''
+    })
+
+    expect(result.stripEmptyTextBlocks).toBe(true)
   })
 
   it('应携带 normalizeNonstandardChatRoles 开关', () => {
@@ -293,6 +336,7 @@ describe('buildChannelPayload', () => {
       supportedModels: [],
       autoBlacklistBalance: true,
       normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
       codexNativeToolPassthrough: false,
       codexToolCompat: true,
       normalizeNonstandardChatRoles: true,

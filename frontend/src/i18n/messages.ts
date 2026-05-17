@@ -223,6 +223,8 @@ export type MessageKey =
   | 'addChannel.codexToolCompatHint'
   | 'addChannel.normalizeMetadataUserIdLabel'
   | 'addChannel.normalizeMetadataUserIdHint'
+  | 'addChannel.stripEmptyTextBlocksLabel'
+  | 'addChannel.stripEmptyTextBlocksHint'
   | 'addChannel.normalizeNonstandardChatRolesLabel'
   | 'addChannel.normalizeNonstandardChatRolesHint'
   | 'addChannel.stripCodexClientToolsLabel'
@@ -648,6 +650,8 @@ export const messages: Record<SupportedLocale, Record<MessageKey, string>> = {
     'addChannel.codexToolCompatHint': 'Enable Codex CLI compatibility: strip client-only tools for Responses passthrough upstreams, or convert them to function proxy tools for Chat/Claude/Gemini upstreams.',
     'addChannel.normalizeMetadataUserIdLabel': 'Normalize metadata.user_id',
     'addChannel.normalizeMetadataUserIdHint': 'Auto-convert JSON object user_id to a flat string for upstream compatibility.',
+    'addChannel.stripEmptyTextBlocksLabel': 'Strip empty text blocks',
+    'addChannel.stripEmptyTextBlocksHint': 'Remove bare empty text content blocks before forwarding, for Claude-protocol upstreams that strictly reject Claude Code tool-use placeholders.',
     'addChannel.normalizeNonstandardChatRolesLabel': 'Normalize non-standard chat roles',
     'addChannel.normalizeNonstandardChatRolesHint': 'When enabled, roles outside system/user/assistant/tool are sent upstream as user.',
     'addChannel.stripCodexClientToolsLabel': 'Strip Codex client tools',
@@ -1072,6 +1076,8 @@ export const messages: Record<SupportedLocale, Record<MessageKey, string>> = {
     'addChannel.codexToolCompatHint': 'Aktifkan kompatibilitas Codex CLI: hapus tool khusus klien untuk upstream Responses passthrough, atau konversi menjadi tool proxy function untuk upstream Chat/Claude/Gemini.',
     'addChannel.normalizeMetadataUserIdLabel': 'Normalisasi metadata.user_id',
     'addChannel.normalizeMetadataUserIdHint': 'Otomatis ubah user_id objek JSON menjadi string datar untuk kompatibilitas upstream.',
+    'addChannel.stripEmptyTextBlocksLabel': 'Hapus blok text kosong',
+    'addChannel.stripEmptyTextBlocksHint': 'Hapus blok content text kosong murni sebelum diteruskan, untuk upstream protokol Claude yang ketat menolak placeholder tool-use dari Claude Code.',
     'addChannel.normalizeNonstandardChatRolesLabel': 'Normalisasi role chat non-standar',
     'addChannel.normalizeNonstandardChatRolesHint': 'Jika aktif, role di luar system/user/assistant/tool dikirim ke upstream sebagai user.',
     'addChannel.stripCodexClientToolsLabel': 'Hapus tool klien Codex',
@@ -1496,6 +1502,8 @@ export const messages: Record<SupportedLocale, Record<MessageKey, string>> = {
     'addChannel.codexToolCompatHint': '启用 Codex CLI 兼容：Responses 透传上游会剥离客户端专属工具，Chat/Claude/Gemini 上游会转换为 function 代理工具。',
     'addChannel.normalizeMetadataUserIdLabel': '规范化 metadata.user_id',
     'addChannel.normalizeMetadataUserIdHint': '自动将 JSON 对象格式的 user_id 转换为扁平字符串，确保上游兼容性。',
+    'addChannel.stripEmptyTextBlocksLabel': '移除空 Text Block',
+    'addChannel.stripEmptyTextBlocksHint': '转发前移除裸空 text content block，兼容严格拒绝 Claude Code tool_use 占位块的 Claude 协议上游',
     'addChannel.normalizeNonstandardChatRolesLabel': '规范化非常见 Chat role',
     'addChannel.normalizeNonstandardChatRolesHint': '开启后将 system/user/assistant/tool 之外的 role 作为 user 转发给上游。',
     'addChannel.stripCodexClientToolsLabel': '剥离 Codex 客户端工具',
