@@ -72,3 +72,49 @@ XiaomiMiMo/MiMo-V2-Flash
 - 硅基流动国际 Base URL：`https://api.siliconflow.com/v1`
 - MiMo 是推理模型，支持 `reasoning_content` 字段返回思考过程
 - 硅基流动也提供 Anthropic 兼容端点（`/anthropic/v1/messages`）
+
+### 视觉支持
+
+MiMo 各模型的视觉支持情况：
+
+| 模型 | 视觉支持 |
+|------|----------|
+| `MiMo-V2.5-Pro` | 不支持 |
+| `MiMo-V2.5` | 支持（原生多模态） |
+| `MiMo-V2-Flash` | 不支持 |
+
+::: warning
+`MiMo-V2.5-Pro` 不支持图片输入。如果需要处理包含图片的请求，必须配置**视觉回退模型**。
+:::
+
+**配置方式：** 编辑渠道，在「视觉回退模型」字段填入 `MiMo-V2.5`。当请求包含图片且目标模型（如 `MiMo-V2.5-Pro`）不支持视觉时，CCX 会自动使用 `MiMo-V2.5` 替代模型处理该请求。
+
+如果留空视觉回退模型，包含图片的请求将跳过该渠道，failover 到下一个支持视觉的渠道。
+
+### 回传思考内容
+
+MiMo 作为推理模型，思考过程中产生的 `reasoning_content` 需要回传给 API，否则会返回 HTTP 400 错误。
+
+**必须启用：** 编辑渠道时打开「回传思考内容」开关（`PassbackReasoningContent`）。
+
+启用后 CCX 会自动处理：
+- **请求方向：** 为缺少 `thinking` 块的 assistant 消息注入占位符，满足 MiMo 的回传要求
+- **响应方向：** 将上游返回的 `reasoning_content` 转换为 Claude 原生的 `thinking` 内容块，下游客户端可正常解析
+
+::: warning
+不开启此开关会导致包含历史对话的推理请求失败（HTTP 400）。
+:::
+
+### 推荐的模型映射
+
+将 Claude 模型名映射到 MiMo 模型：
+
+| 请求模型 | 重定向到 | 说明 |
+|----------|----------|------|
+| `haiku` | `mimo-v2.5-pro` | 旗舰推理 |
+| `opus` | `mimo-v2.5-pro` | 旗舰推理 |
+| `sonnet` | `mimo-v2.5-pro` | 旗舰推理 |
+
+::: tip
+所有 Claude 模型统一映射到 `MiMo-V2.5-Pro` 以获得最佳推理能力。配合视觉回退模型 `MiMo-V2.5` 使用，图片请求会自动切换到支持视觉的模型。
+:::
