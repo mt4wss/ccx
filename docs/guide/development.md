@@ -73,7 +73,7 @@ bun run type-check
 bun run lint
 ```
 
-如果本地没有 Bun，可改用 `npm install` / `npm run <script>` 作为兼容方案。
+如果需要验证 pnpm 兼容性，可运行 `pnpm install`；日常开发、构建和依赖变更仍以 Bun 为准。
 
 ## Windows 环境建议
 

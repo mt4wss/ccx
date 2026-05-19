@@ -21,7 +21,7 @@ echo ""
 # 检查前端构建产物是否存在
 if [ ! -d "../frontend/dist" ]; then
     echo "❌ 前端构建产物不存在，请先构建前端："
-    echo "   cd ../frontend && npm run build"
+    echo "   cd ../frontend && bun run build"
     exit 1
 fi
 
