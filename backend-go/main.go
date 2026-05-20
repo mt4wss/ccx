@@ -573,13 +573,12 @@ func main() {
 	if envCfg.IsProduction() && envCfg.ProxyAccessKey == "your-proxy-access-key" {
 		log.Fatal("[Server-Fatal] 生产环境必须设置 PROXY_ACCESS_KEY，禁止使用默认值")
 	}
-	// 检查是否使用默认密码，给予提示
-	if envCfg.ProxyAccessKey == "your-proxy-access-key" {
-		fmt.Printf("[Server-Warn] 访问密钥: your-proxy-access-key (默认值，建议通过 .env 文件修改)\n")
-	}
-	// 提示管理密钥配置状态
+	// 打印访问控制密钥的脱密内容和设置情况，避免用户混淆
+	fmt.Printf("[Server-Info] 代理访问密钥 (PROXY_ACCESS_KEY): %s\n", maskKey(envCfg.ProxyAccessKey))
 	if envCfg.AdminAccessKey != "" {
-		fmt.Printf("[Server-Info] 管理密钥: 已配置独立 ADMIN_ACCESS_KEY\n")
+		fmt.Printf("[Server-Info] 管理 API 密钥 (ADMIN_ACCESS_KEY): %s (已启用独立管理密钥)\n", maskKey(envCfg.AdminAccessKey))
+	} else {
+		fmt.Printf("[Server-Info] 管理 API 密钥 (ADMIN_ACCESS_KEY): 未设置 (回退到 PROXY_ACCESS_KEY)\n")
 	}
 	fmt.Printf("\n")
 
@@ -643,4 +642,24 @@ func main() {
 	case <-time.After(15 * time.Second):
 		log.Println("[Server-Shutdown] 警告: 等待关闭超时")
 	}
+}
+
+// maskKey 对密钥进行脱密处理，保留首尾部分字符，中间用 * 遮蔽
+func maskKey(key string) string {
+	if key == "" {
+		return "未设置"
+	}
+	if key == "your-proxy-access-key" {
+		return "your-proxy-access-key (默认值，不安全)"
+	}
+	n := len(key)
+	var masked string
+	if n <= 4 {
+		masked = "****"
+	} else if n <= 8 {
+		masked = key[:1] + "****" + key[n-1:]
+	} else {
+		masked = key[:2] + "****" + key[n-2:]
+	}
+	return masked + " (已脱敏，不可直接复制)"
 }
