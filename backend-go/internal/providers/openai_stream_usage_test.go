@@ -341,7 +341,9 @@ func TestOpenAIProvider_ConvertToClaudeResponse_CacheFieldInJSON(t *testing.T) {
 
 	respJSON, _ := json.Marshal(claudeResp)
 	var parsed map[string]interface{}
-	json.Unmarshal(respJSON, &parsed)
+	if err := json.Unmarshal(respJSON, &parsed); err != nil {
+		t.Fatalf("unmarshal claudeResp json failed: %v", err)
+	}
 
 	usage, _ := parsed["usage"].(map[string]interface{})
 	if usage == nil {

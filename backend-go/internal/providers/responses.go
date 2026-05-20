@@ -1062,19 +1062,6 @@ func responsesToolHistoryMessage(role, text string) map[string]interface{} {
 	}
 }
 
-func formatFunctionCallHistory(item map[string]interface{}) string {
-	name := toString(item["name"])
-	callID := toString(item["call_id"])
-	arguments := toString(item["arguments"])
-	if name == "" {
-		name = "function_call"
-	}
-	if callID != "" {
-		return fmt.Sprintf("Function call %s (%s): %s", name, callID, arguments)
-	}
-	return fmt.Sprintf("Function call %s: %s", name, arguments)
-}
-
 func formatFunctionCallOutputHistory(item map[string]interface{}) string {
 	callID := toString(item["call_id"])
 	output := toString(item["output"])

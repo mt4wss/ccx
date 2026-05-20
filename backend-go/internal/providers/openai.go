@@ -357,8 +357,12 @@ func (p *OpenAIProvider) ConvertToClaudeResponse(providerResp *types.ProviderRes
 
 		// 添加工具调用
 		for _, toolCall := range msg.ToolCalls {
+			// 工具入参解析失败时降级保留原始字符串，避免静默丢失，
+			// 便于下游客户端或日志看到上游返回的原文以便排查。
 			var input interface{}
-			json.Unmarshal([]byte(toolCall.Function.Arguments), &input)
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &input); err != nil {
+				input = toolCall.Function.Arguments
+			}
 			input = sanitizeClaudeToolInput(toolCall.Function.Name, input)
 
 			claudeResp.Content = append(claudeResp.Content, types.ClaudeContent{

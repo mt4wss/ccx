@@ -306,7 +306,7 @@ func (p *ClaudeProvider) ConvertToProviderRequest(c *gin.Context, upstream *conf
 	}
 
 	// 模型重定向：仅修改 model 字段，保持其他内容不变
-	if upstream.ModelMapping != nil && len(upstream.ModelMapping) > 0 {
+	if len(upstream.ModelMapping) > 0 {
 		bodyBytes = redirectModelInBody(bodyBytes, upstream)
 	}
 

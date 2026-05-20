@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### 重构
+
+- **清理 `providers` 包历史 lint 告警**：
+  - `backend-go/internal/providers/openai.go` 中 `ConvertToClaudeResponse` 转换 tool_call 入参时，给 `json.Unmarshal` 补上错误检查；解析失败时降级保留 `toolCall.Function.Arguments` 原始字符串，避免静默丢失参数（errcheck）。
+  - `backend-go/internal/providers/openai_stream_usage_test.go` 中 `TestOpenAIProvider_ConvertToClaudeResponse_CacheFieldInJSON` 给 `json.Unmarshal` 补上 `t.Fatalf` 错误检查，防止 unmarshal 失败时后续断言基于空 map 假阳性通过（errcheck）。
+  - `backend-go/internal/providers/responses.go` 删除未被任何地方调用的 `formatFunctionCallHistory` 函数（13 行）：与配套 `formatFunctionCallOutputHistory` 不对称——`function_call` 分支始终直接保留原始 item，不需要降级为文本消息，该函数是早期设计残留（unused）。
+  - `backend-go/internal/providers/claude.go` 中 `ConvertToProviderRequest` 模型重定向条件 `upstream.ModelMapping != nil && len(upstream.ModelMapping) > 0` 简化为 `len(upstream.ModelMapping) > 0`（Go 对 nil map 的 `len()` 定义为 0，gosimple/S1009）。
+
 ## [v2.7.7] - 2026-05-20
 
 ### 修复
