@@ -19,30 +19,82 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-2">
-    <Button size="sm" :disabled="loading || status.running" @click="emit('start')">
-      <Play class="w-4 h-4 mr-1.5" />
-      启动
-    </Button>
-    <Button size="sm" variant="secondary" :disabled="loading || !status.running || status.attached" @click="emit('stop')">
-      <Square class="w-4 h-4 mr-1.5" />
-      停止
-    </Button>
-    <Button size="sm" variant="secondary" :disabled="loading || status.attached" @click="emit('restart')">
-      <RotateCcw class="w-4 h-4 mr-1.5" />
-      重启
-    </Button>
-    <Button size="sm" variant="outline" :disabled="loading" @click="emit('openWebUI')">
-      <Globe class="w-4 h-4 mr-1.5" />
-      打开 Web UI
-    </Button>
-    <Button size="sm" variant="outline" :disabled="loading" @click="emit('openBrowser')">
-      <ExternalLink class="w-4 h-4 mr-1.5" />
-      浏览器打开
-    </Button>
-    <Button size="sm" variant="ghost" :disabled="loading" @click="emit('refresh')">
-      <RefreshCw class="w-4 h-4 mr-1.5" />
-      刷新
-    </Button>
+  <div class="flex flex-wrap items-center justify-between gap-3 bg-glass border border-white/[0.02] p-3.5 rounded-xl select-none shrink-0">
+    <!-- 主运行操作组合 (启动, 停止, 重启) -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <!-- 启动按钮 (带 Shimmer 渐变) -->
+      <Button
+        size="sm"
+        :disabled="loading || status.running"
+        @click="emit('start')"
+        class="bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-md active:scale-95 hover:scale-[1.02] transition-all duration-300 btn-shimmer disabled:opacity-30 border border-blue-500/10 cursor-pointer"
+      >
+        <Play class="w-3.5 h-3.5 mr-1.5 fill-white" />
+        启动服务
+      </Button>
+
+      <!-- 停止按钮 -->
+      <Button
+        size="sm"
+        variant="secondary"
+        :disabled="loading || !status.running || status.attached"
+        @click="emit('stop')"
+        class="bg-slate-900/80 hover:bg-slate-900 text-slate-300 border border-white/[0.03] active:scale-95 hover:scale-[1.02] transition-all duration-300 disabled:opacity-20 cursor-pointer"
+      >
+        <Square class="w-3.5 h-3.5 mr-1.5 fill-slate-300" />
+        停止服务
+      </Button>
+
+      <!-- 重启按钮 -->
+      <Button
+        size="sm"
+        variant="secondary"
+        :disabled="loading || status.attached"
+        @click="emit('restart')"
+        class="bg-slate-900/80 hover:bg-slate-900 text-slate-300 border border-white/[0.03] active:scale-95 hover:scale-[1.02] transition-all duration-300 disabled:opacity-20 cursor-pointer"
+      >
+        <RotateCcw class="w-3.5 h-3.5 mr-1.5" />
+        重启服务
+      </Button>
+    </div>
+
+    <!-- 附属功能组合 (浏览器, 刷新, 内嵌) -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- 内嵌 Web UI -->
+      <Button
+        size="sm"
+        variant="outline"
+        :disabled="loading"
+        @click="emit('openWebUI')"
+        class="bg-slate-950/40 border border-slate-900/80 hover:bg-slate-900 hover:text-slate-200 hover:border-slate-800 text-slate-400 active:scale-95 transition-all duration-200 cursor-pointer"
+      >
+        <Globe class="w-3.5 h-3.5 mr-1.5 text-blue-500/80" />
+        进入 Web UI
+      </Button>
+
+      <!-- 浏览器中打开 -->
+      <Button
+        size="sm"
+        variant="outline"
+        :disabled="loading"
+        @click="emit('openBrowser')"
+        class="bg-slate-950/40 border border-slate-900/80 hover:bg-slate-900 hover:text-slate-200 hover:border-slate-800 text-slate-400 active:scale-95 transition-all duration-200 cursor-pointer"
+      >
+        <ExternalLink class="w-3.5 h-3.5 mr-1.5 text-emerald-500/80" />
+        浏览器直达
+      </Button>
+
+      <!-- 刷新状态 -->
+      <Button
+        size="sm"
+        variant="ghost"
+        :disabled="loading"
+        @click="emit('refresh')"
+        class="text-slate-500 hover:text-slate-300 hover:bg-slate-900 p-2 rounded-lg cursor-pointer transition-colors"
+        title="刷新当前状态"
+      >
+        <RefreshCw class="w-3.5 h-3.5" :class="loading ? 'animate-spin' : ''" />
+      </Button>
+    </div>
   </div>
 </template>
