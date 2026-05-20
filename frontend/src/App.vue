@@ -64,14 +64,15 @@
     <v-app-bar elevation="0" :height="$vuetify.display.mobile ? 56 : 72" class="app-header">
       <template #prepend>
         <a href="https://github.com/BenedictKing/ccx" target="_blank" rel="noopener noreferrer" class="app-logo d-flex align-center justify-center pa-0 overflow-hidden">
-          <Logo :size="$vuetify.display.mobile ? 24 : 34" />
+          <!-- 显著放大 Logo 尺寸（手机端 32px，电脑端 44px）让流转动画和发光更清晰夺目 -->
+          <Logo :size="$vuetify.display.mobile ? 32 : 44" />
         </a>
       </template>
 
       <!-- 自定义标题容器 - 替代 v-app-bar-title -->
       <div class="header-title">
-        <!-- 移动/平板端：下拉菜单（< 960px，6 个 tab 在窄屏会挤压） -->
-        <v-menu v-if="$vuetify.display.smAndDown">
+        <!-- 移动/平板端：下拉菜单（宽度小于 1000px 时进行折叠，防止菜单过窄挤压） -->
+        <v-menu v-if="$vuetify.display.width < 1000">
           <template #activator="{ props: menuProps }">
             <v-btn
               v-bind="menuProps"
@@ -1870,8 +1871,8 @@ onUnmounted(() => {
 }
 
 .app-logo {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
