@@ -1871,14 +1871,12 @@ onUnmounted(() => {
 }
 
 .app-logo {
-  width: 52px;
-  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent !important; /* 改为完全透明背景，使 Logo 完美悬浮融入应用栏 */
-  border: none !important;            /* 移除多余的重边框，以优雅的无框形态呈现 */
-  box-shadow: none !important;         /* 移除不搭调的硬暗色投影 */
+  background: transparent !important; /* 完全透明，完美悬浮 */
+  border: none !important;            /* 无框设计 */
+  box-shadow: none !important;         /* 无暗投影，完全通透 */
   margin-right: 8px;
 }
 
