@@ -63,8 +63,8 @@
     <!-- 应用栏 - 毛玻璃效果 -->
     <v-app-bar elevation="0" :height="$vuetify.display.mobile ? 56 : 72" class="app-header">
       <template #prepend>
-        <a href="https://github.com/BenedictKing/ccx" target="_blank" rel="noopener noreferrer" class="app-logo">
-          <v-icon :size="$vuetify.display.mobile ? 22 : 32" color="white"> mdi-rocket-launch </v-icon>
+        <a href="https://github.com/BenedictKing/ccx" target="_blank" rel="noopener noreferrer" class="app-logo d-flex align-center justify-center pa-0 overflow-hidden">
+          <Logo :size="$vuetify.display.mobile ? 24 : 34" />
         </a>
       </template>
 
@@ -447,6 +447,7 @@
 import { ref, onMounted, onUnmounted, computed, watch, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { useTheme } from 'vuetify'
+import Logo from './components/Logo.vue'
 import { api, fetchHealth, ApiError, type Channel, type CapabilityTestJob, type CapabilityTestJobStartResponse, type CapabilityProtocolJobResult, type CapabilityModelJobResult, type CapabilitySnapshot } from './services/api'
 import { versionService } from './services/version'
 import { useAuthStore } from './stores/auth'
