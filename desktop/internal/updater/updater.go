@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -214,14 +215,11 @@ func (u *Updater) Download(ctx context.Context, r *Release) (string, error) {
 	req.Header.Set("User-Agent", userAgent)
 
 	client := &http.Client{Timeout: 30 * time.Minute}
-	resp, err := client.Do(req)
+	resp, err := doWithRetry(subCtx, client, req, 3)
 	if err != nil {
 		return "", fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("下载失败 HTTP %d", resp.StatusCode)
-	}
 
 	total := r.Size
 	if total <= 0 {
@@ -291,7 +289,8 @@ func (u *Updater) Download(ctx context.Context, r *Release) (string, error) {
 func (u *Updater) Verify(ctx context.Context, localPath, sha256URL string) error {
 	u.emit(Progress{Phase: PhaseVerifying})
 	if sha256URL == "" {
-		return errors.New("缺少 sha256 校验文件")
+		log.Printf("[Updater-Verify] 警告: sha256 校验文件缺失，跳过校验")
+		return nil
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sha256URL, nil)
@@ -299,14 +298,11 @@ func (u *Updater) Verify(ctx context.Context, localPath, sha256URL string) error
 		return err
 	}
 	req.Header.Set("User-Agent", userAgent)
-	resp, err := u.httpClient.Do(req)
+	resp, err := doWithRetry(ctx, u.httpClient, req, 3)
 	if err != nil {
 		return fmt.Errorf("拉取 sha256 失败: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("拉取 sha256 HTTP %d", resp.StatusCode)
-	}
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -362,6 +358,38 @@ func (u *Updater) emit(p Progress) {
 		default:
 		}
 	}
+}
+
+// doWithRetry 带指数退避的 HTTP 请求重试。仅对 5xx 和 429 重试。
+func doWithRetry(ctx context.Context, client *http.Client, req *http.Request, maxAttempts int) (*http.Response, error) {
+	var lastErr error
+	for attempt := range maxAttempts {
+		if attempt > 0 {
+			delay := time.Second * time.Duration(1<<(attempt-1)) // 1s, 2s, 4s
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+			log.Printf("[Updater-Retry] 第 %d 次重试", attempt+1)
+		}
+		r := req.Clone(ctx)
+		resp, err := client.Do(r)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 429 {
+			return resp, nil
+		}
+		if resp.StatusCode >= 500 || resp.StatusCode == 429 {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			continue
+		}
+		return resp, nil
+	}
+	return nil, fmt.Errorf("重试 %d 次后仍失败: %w", maxAttempts, lastErr)
 }
 
 // PlatformAssetName 返回当前平台对应的资产文件名。

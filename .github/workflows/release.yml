@@ -1,0 +1,341 @@
+name: Release
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Build Frontend
+        run: bun install --frozen-lockfile && bun run build
+        working-directory: ./frontend
+
+      - name: Copy Frontend to Backend
+        run: |
+          rm -rf backend-go/frontend/dist
+          mkdir -p backend-go/frontend/dist
+          cp -r frontend/dist/* backend-go/frontend/dist/
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: backend-go/go.sum
+
+      - name: Build Backend arm64
+        run: |
+          go mod download
+          CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GitCommit=${{ github.sha }}" -o ccx-darwin-arm64
+        working-directory: ./backend-go
+
+      - name: Build Backend amd64
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GitCommit=${{ github.sha }}" -o ccx-darwin-amd64
+        working-directory: ./backend-go
+
+      - name: Generate checksums
+        run: |
+          cd backend-go
+          shasum -a 256 ccx-darwin-arm64 | awk '{print $1}' > ccx-darwin-arm64.sha256
+          shasum -a 256 ccx-darwin-amd64 | awk '{print $1}' > ccx-darwin-amd64.sha256
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.92
+
+      - name: Install Desktop Frontend Deps
+        run: bun install --frozen-lockfile
+        working-directory: ./desktop/frontend
+
+      - name: Build Desktop arm64 DMG
+        env:
+          BUILD_VERSION: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          VERSION="${BUILD_VERSION#v}"
+          wails3 task darwin:package ARCH=arm64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
+          rm -f "bin/CCX Desktop-arm64.dmg" || true
+          hdiutil create -volname "CCX Desktop" -srcfolder "bin/ccx-desktop.app" -ov -format UDZO "bin/CCX-Desktop-${VERSION}-darwin-arm64.dmg"
+          shasum -a 256 "bin/CCX-Desktop-${VERSION}-darwin-arm64.dmg" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-darwin-arm64.dmg.sha256"
+          rm -rf "bin/ccx-desktop.app"
+        working-directory: ./desktop
+
+      - name: Build Desktop amd64 DMG
+        env:
+          BUILD_VERSION: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          VERSION="${BUILD_VERSION#v}"
+          wails3 task darwin:package ARCH=amd64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
+          rm -f "bin/CCX Desktop-amd64.dmg" || true
+          hdiutil create -volname "CCX Desktop" -srcfolder "bin/ccx-desktop.app" -ov -format UDZO "bin/CCX-Desktop-${VERSION}-darwin-amd64.dmg"
+          shasum -a 256 "bin/CCX-Desktop-${VERSION}-darwin-amd64.dmg" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-darwin-amd64.dmg.sha256"
+          rm -rf "bin/ccx-desktop.app"
+        working-directory: ./desktop
+
+      - name: Upload macOS Assets
+        uses: softprops/action-gh-release@v2.0.5
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            backend-go/ccx-darwin-arm64
+            backend-go/ccx-darwin-amd64
+            backend-go/ccx-darwin-arm64.sha256
+            backend-go/ccx-darwin-amd64.sha256
+            desktop/bin/CCX-Desktop-*-darwin-arm64.dmg
+            desktop/bin/CCX-Desktop-*-darwin-amd64.dmg
+            desktop/bin/CCX-Desktop-*-darwin-arm64.dmg.sha256
+            desktop/bin/CCX-Desktop-*-darwin-amd64.dmg.sha256
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Build Frontend
+        run: bun install --frozen-lockfile && bun run build
+        working-directory: ./frontend
+
+      - name: Copy Frontend to Backend
+        run: |
+          rm -rf backend-go/frontend/dist
+          mkdir -p backend-go/frontend/dist
+          cp -r frontend/dist/* backend-go/frontend/dist/
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: backend-go/go.sum
+
+      - name: Build Backend amd64
+        run: |
+          go mod download
+          CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GitCommit=${{ github.sha }}" -o ccx-windows-amd64.exe
+        working-directory: ./backend-go
+
+      - name: Build Backend arm64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GitCommit=${{ github.sha }}" -o ccx-windows-arm64.exe
+        working-directory: ./backend-go
+
+      - name: Generate checksums
+        run: |
+          cd backend-go
+          sha256sum ccx-windows-amd64.exe | awk '{print $1}' > ccx-windows-amd64.exe.sha256
+          sha256sum ccx-windows-arm64.exe | awk '{print $1}' > ccx-windows-arm64.exe.sha256
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.92
+
+      - name: Install Desktop Frontend Deps
+        run: bun install --frozen-lockfile
+        working-directory: ./desktop/frontend
+
+      - name: Build Desktop amd64 NSIS
+        env:
+          BUILD_VERSION: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          VERSION="${BUILD_VERSION#v}"
+          rm -f bin/*installer*.exe bin/*setup*.exe
+          wails3 task windows:package ARCH=amd64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
+          INSTALLER=$(find bin -maxdepth 1 -type f \( -iname '*amd64*installer*.exe' -o -iname '*installer*.exe' -o -iname '*setup*.exe' \) | head -1)
+          if [ -z "$INSTALLER" ]; then
+            echo "Desktop installer not found"
+            find bin -maxdepth 1 -type f -name '*.exe' -print
+            exit 1
+          fi
+          mv "$INSTALLER" "bin/CCX-Desktop-${VERSION}-windows-amd64-setup.exe"
+          sha256sum "bin/CCX-Desktop-${VERSION}-windows-amd64-setup.exe" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-windows-amd64-setup.exe.sha256"
+        working-directory: ./desktop
+
+      - name: Build Desktop arm64 NSIS
+        env:
+          BUILD_VERSION: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          VERSION="${BUILD_VERSION#v}"
+          rm -f bin/*installer*.exe bin/*setup*.exe
+          wails3 task windows:package ARCH=arm64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
+          INSTALLER=$(find bin -maxdepth 1 -type f \( -iname '*arm64*installer*.exe' -o -iname '*installer*.exe' -o -iname '*setup*.exe' \) | head -1)
+          if [ -z "$INSTALLER" ]; then
+            echo "Desktop installer not found"
+            find bin -maxdepth 1 -type f -name '*.exe' -print
+            exit 1
+          fi
+          mv "$INSTALLER" "bin/CCX-Desktop-${VERSION}-windows-arm64-setup.exe"
+          sha256sum "bin/CCX-Desktop-${VERSION}-windows-arm64-setup.exe" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-windows-arm64-setup.exe.sha256"
+        working-directory: ./desktop
+
+      - name: Upload Windows Assets
+        uses: softprops/action-gh-release@v2.0.5
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            backend-go/ccx-windows-amd64.exe
+            backend-go/ccx-windows-arm64.exe
+            backend-go/ccx-windows-amd64.exe.sha256
+            backend-go/ccx-windows-arm64.exe.sha256
+            desktop/bin/CCX-Desktop-*-windows-amd64-setup.exe
+            desktop/bin/CCX-Desktop-*-windows-arm64-setup.exe
+            desktop/bin/CCX-Desktop-*-windows-amd64-setup.exe.sha256
+            desktop/bin/CCX-Desktop-*-windows-arm64-setup.exe.sha256
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Build Frontend
+        run: bun install --frozen-lockfile && bun run build
+        working-directory: ./frontend
+
+      - name: Copy Frontend to Backend
+        run: |
+          rm -rf backend-go/frontend/dist
+          mkdir -p backend-go/frontend/dist
+          cp -r frontend/dist/* backend-go/frontend/dist/
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: backend-go/go.sum
+
+      - name: Build Backend for amd64
+        run: |
+          go mod download
+          CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GitCommit=${{ github.sha }}" -o ccx-linux-amd64
+        working-directory: ./backend-go
+
+      - name: Build Backend for arm64
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X main.Version=${{ github.ref_name }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X main.GitCommit=${{ github.sha }}" -o ccx-linux-arm64
+        working-directory: ./backend-go
+
+      - name: Generate checksums
+        run: |
+          cd backend-go
+          sha256sum ccx-linux-amd64 | awk '{print $1}' > ccx-linux-amd64.sha256
+          sha256sum ccx-linux-arm64 | awk '{print $1}' > ccx-linux-arm64.sha256
+
+      - name: Install Wails3 build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config build-essential libfuse2
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.92
+
+      - name: Install Desktop Frontend Deps
+        run: bun install --frozen-lockfile
+        working-directory: ./desktop/frontend
+
+      - name: Build Desktop amd64 AppImage
+        env:
+          BUILD_VERSION: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+        run: |
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          VERSION="${BUILD_VERSION#v}"
+          wails3 task linux:create:appimage ARCH=amd64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
+          APPIMAGE=$(find bin -maxdepth 1 -iname '*.AppImage' | head -1)
+          mv "$APPIMAGE" "bin/CCX-Desktop-${VERSION}-linux-amd64.AppImage"
+          sha256sum "bin/CCX-Desktop-${VERSION}-linux-amd64.AppImage" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-linux-amd64.AppImage.sha256"
+        working-directory: ./desktop
+
+      - name: Upload Linux Assets
+        uses: softprops/action-gh-release@v2.0.5
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            backend-go/ccx-linux-amd64
+            backend-go/ccx-linux-arm64
+            backend-go/ccx-linux-amd64.sha256
+            backend-go/ccx-linux-arm64.sha256
+            desktop/bin/CCX-Desktop-*-linux-amd64.AppImage
+            desktop/bin/CCX-Desktop-*-linux-amd64.AppImage.sha256
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  finalize:
+    runs-on: ubuntu-latest
+    needs: [build-macos, build-windows, build-linux]
+    steps:
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2.0.5
+        with:
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
