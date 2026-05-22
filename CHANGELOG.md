@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### 新增
+
+- **Release Sigstore 签名**：
+  - 在 CI 发布流程中集成 Sigstore / cosign keyless signing，使用 GitHub Actions OIDC 颁发短期证书，无需管理密钥。
+  - 三个构建平台（macOS / Windows / Linux）各自生成平台级 checksums 并签名，`finalize` job 合并为全平台 `checksums.txt` 后再次签名。
+  - 新增 `docs/guide/verification.md` 与 `docs/en/guide/verification.md` 验证文档，说明 cosign 安装与签名验证步骤。
+  - 现有 `.sha256` sidecar 文件与 updater 行为不变。
+
 ### 修复
 
 - **DeepSeek `user_id` 限速与隔离字段透传**：

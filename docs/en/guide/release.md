@@ -121,3 +121,23 @@ git push origin vX.Y.Z
 - [ ] `cd "backend-go" && make test` 通过
 - [ ] `cd "frontend" && bun run build` 通过
 - [ ] 已创建并推送 `vX.Y.Z` tag
+
+## Release Signing
+
+Releases are signed using [Sigstore](https://www.sigstore.dev/) / cosign keyless signing. After pushing the tag, CI automatically:
+
+1. Builds artifacts on all three platforms (macOS / Windows / Linux), generates per-platform checksums and signs them
+2. The `finalize` job merges all per-platform checksums into `checksums.txt` and signs the consolidated manifest
+3. All signature files are published alongside the release
+
+After publishing, verify these signature assets exist in the Release:
+
+- `checksums.txt` — cross-platform consolidated SHA256 manifest
+- `checksums.txt.sigstore.json` — Sigstore bundle for the consolidated manifest
+- `checksums-macos.txt(.sigstore.json)` — macOS platform
+- `checksums-windows.txt(.sigstore.json)` — Windows platform
+- `checksums-linux.txt(.sigstore.json)` — Linux platform
+
+Existing `.sha256` sidecar files are preserved; desktop/backend updater behavior is unchanged.
+
+See [Verifying Release Artifacts](./verification.md) for user verification instructions.

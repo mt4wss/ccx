@@ -121,3 +121,23 @@ git push origin vX.Y.Z
 - [ ] `cd "backend-go" && make test` 通过
 - [ ] `cd "frontend" && bun run build` 通过
 - [ ] 已创建并推送 `vX.Y.Z` tag
+
+## Release 签名
+
+正式 Release 通过 [Sigstore](https://www.sigstore.dev/) / cosign keyless signing 签名 checksums 清单。推送 tag 后 CI 会自动完成以下步骤：
+
+1. 三个平台（macOS / Windows / Linux）分别构建产物、生成平台级 checksums 并签名
+2. `finalize` job 合并三个平台的 checksums 为 `checksums.txt`，再次签名
+3. 所有签名文件随 Release 一起发布
+
+发布后请确认 Release assets 中存在以下签名文件：
+
+- `checksums.txt` — 全平台合并 SHA256 清单
+- `checksums.txt.sigstore.json` — 合并清单的 Sigstore bundle
+- `checksums-macos.txt(.sigstore.json)` — macOS 平台
+- `checksums-windows.txt(.sigstore.json)` — Windows 平台
+- `checksums-linux.txt(.sigstore.json)` — Linux 平台
+
+现有 `.sha256` sidecar 文件保留不变，desktop/backend updater 行为不受影响。
+
+用户验证方式见 [验证发布产物](./verification.md)。
