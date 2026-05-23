@@ -1,3 +1,16 @@
+## [v2.7.21] - 2026-05-23
+
+### 修复
+
+- **Release checksum 路径前缀修正** - 修复 CI release 流程中 checksum 文件路径前缀错误并精简 finalize job
+- **桌面构建 ccx-go 查找路径** - 修正桌面端构建时 ccx-go 后端二进制的查找路径
+- **渠道中心 Base URL 过滤** - 桌面端渠道中心按 target 协议过滤 Base URL 选项，避免显示不匹配的选项
+
+### 其他
+
+- **恢复 Wails 3 TypeScript 绑定文件** - 恢复桌面端 Wails 3 自动生成的 TypeScript 绑定文件
+- **version-bump 技能文档更新** - 更新 version-bump 技能的 GitHub Actions 集成说明，新增 `gh run list` 查看构建进度命令
+
 ## [v2.7.20] - 2026-05-23
 
 ### 修复
