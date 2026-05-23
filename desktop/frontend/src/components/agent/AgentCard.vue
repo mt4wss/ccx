@@ -47,12 +47,7 @@ const badgeClass = computed(() => {
   return 'bg-destructive text-destructive-foreground border-0'
 })
 
-const applyLabel = computed(() => {
-  if (props.platform === 'claude') {
-    return `应用 ${props.claudeProviderLabel?.(props.selectedClaudeProvider) || 'CCX'} 配置`
-  }
-  return `应用 ${props.codexProviderLabel?.(props.selectedCodexProvider) || 'CCX'} 配置`
-})
+const applyLabel = computed(() => '应用配置')
 </script>
 
 <template>
