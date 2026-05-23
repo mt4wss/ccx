@@ -2,14 +2,21 @@
 
 ### 新增
 
+- **Desktop 内置 ccx-go 后端**：macOS .app、Windows NSIS、Linux AppImage/deb/rpm 安装包现在内置 ccx-go 后端二进制，用户无需单独下载。Desktop 与 ccx-go 共用版本号。
 - **Release Sigstore 签名**：
   - 在 CI 发布流程中集成 Sigstore / cosign keyless signing，使用 GitHub Actions OIDC 颁发短期证书，无需管理密钥。
   - 三个构建平台（macOS / Windows / Linux）各自生成平台级 checksums 并签名，`finalize` job 合并为全平台 `checksums.txt` 后再次签名。
   - 新增 `docs/guide/verification.md` 与 `docs/en/guide/verification.md` 验证文档，说明 cosign 安装与签名验证步骤。
   - 现有 `.sha256` sidecar 文件与 updater 行为不变。
 
+### 变更
+
+- **桌面端 Env 配置访问控制置顶**：`PROXY_ACCESS_KEY` 和 `ADMIN_ACCESS_KEY` 配置组在 Env 配置表单中移到首位，便于首次配置时优先设置。
+- **补齐桌面端测试覆盖**：新增 `configservice`（19 个纯函数 + 集成测试）和 `backend/manager`（16 个测试）测试文件。
+
 ### 修复
 
+- **桌面端 Agent 配置服务初始化错误日志**：`configservice.New()` 失败时不再静默丢弃错误，改为输出 `[Desktop-Init]` 日志便于排查。
 - **渠道对话框下拉菜单位置偏移**：修复 Vuetify v-select/v-combobox 在添加/编辑渠道对话框内首次打开时菜单位置计算错误的问题，通过 eager 预渲染与 resize 触发确保下拉菜单正确定位。
 - **DeepSeek `user_id` 限速与隔离字段透传**：
   - 让内部会话标识提取支持 Chat 请求体顶层 `user_id`，用于 Trace 亲和性与调度追踪。

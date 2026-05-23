@@ -11,6 +11,12 @@ APP_DIR="${APP_NAME}.AppDir"
 # Create AppDir structure
 mkdir -p "${APP_DIR}/usr/bin"
 cp -r "${APP_BINARY}" "${APP_DIR}/usr/bin/"
+
+# 捆绑 ccx-go 后端二进制
+if [ -n "${APP_BACKEND:-}" ] && [ -f "${APP_BACKEND}" ]; then
+    cp "${APP_BACKEND}" "${APP_DIR}/usr/bin/ccx-go"
+fi
+
 cp "${ICON_PATH}" "${APP_DIR}/"
 cp "${DESKTOP_FILE}" "${APP_DIR}/"
 

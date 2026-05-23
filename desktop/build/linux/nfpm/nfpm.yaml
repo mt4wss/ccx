@@ -19,6 +19,8 @@ release: "1"
 contents:
   - src: "./bin/ccx-desktop"
     dst: "/usr/local/bin/ccx-desktop"
+  - src: "./bin/ccx-go"
+    dst: "/usr/local/bin/ccx-go"
   - src: "./build/appicon.png"
     dst: "/usr/share/icons/hicolor/128x128/apps/ccx-desktop.png"
   - src: "./build/linux/ccx-desktop.desktop"
