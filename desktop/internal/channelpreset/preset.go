@@ -39,6 +39,14 @@ type ProviderPlan struct {
 	Custom      bool   `json:"custom"`
 }
 
+// Protocol 返回 plan 所属的协议类型。
+func (p ProviderPlan) Protocol() string {
+	if strings.Contains(p.BaseURL, "anthropic") {
+		return "anthropic"
+	}
+	return "openai"
+}
+
 type ChannelTarget struct {
 	Type        string `json:"type"`
 	Label       string `json:"label"`
@@ -283,6 +291,31 @@ func FindPreset(provider string) (ProviderPreset, bool) {
 		}
 	}
 	return ProviderPreset{}, false
+}
+
+// FilterPlansForTarget 按 target 协议过滤 plans，只返回兼容的入口。
+// messages 使用 Anthropic 协议，chat/responses 使用 OpenAI 协议。
+// 自定义 plan 始终保留。
+func FilterPlansForTarget(plans []ProviderPlan, target string) []ProviderPlan {
+	if len(plans) <= 1 {
+		return plans
+	}
+	wantAnthropic := target == TargetMessages
+	var filtered []ProviderPlan
+	for _, plan := range plans {
+		if plan.Custom {
+			filtered = append(filtered, plan)
+			continue
+		}
+		isAnthropic := plan.Protocol() == "anthropic"
+		if wantAnthropic == isAnthropic {
+			filtered = append(filtered, plan)
+		}
+	}
+	if len(filtered) == 0 {
+		return plans
+	}
+	return filtered
 }
 
 func ResolveBaseURL(preset ProviderPreset, planID string, customBaseURL string) (string, error) {

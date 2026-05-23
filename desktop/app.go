@@ -243,8 +243,16 @@ func (s *DesktopService) GetSavedProviderKeys() map[string]string {
 	return s.configService.GetSavedProviderKeys()
 }
 
-func (s *DesktopService) GetProviderPresets() []channelpreset.ProviderPreset {
-	return channelpreset.Presets()
+func (s *DesktopService) GetProviderPresets(target string) []channelpreset.ProviderPreset {
+	presets := channelpreset.Presets()
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return presets
+	}
+	for i := range presets {
+		presets[i].Plans = channelpreset.FilterPlansForTarget(presets[i].Plans, target)
+	}
+	return presets
 }
 
 func (s *DesktopService) GetProviderKeyAssets() []configservice.ProviderKeyAsset {

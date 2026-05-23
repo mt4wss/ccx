@@ -25,12 +25,12 @@ const keysByProvider = computed(() => {
   }, {})
 })
 
-const loadChannelPresets = async () => {
+const loadChannelPresets = async (target?: string) => {
   loading.value = true
   error.value = ''
   try {
     const [nextPresets, nextAssets] = await Promise.all([
-      GetProviderPresets() as Promise<ProviderPreset[]>,
+      GetProviderPresets(target || '') as Promise<ProviderPreset[]>,
       GetProviderKeyAssets() as Promise<ProviderKeyAsset[]>,
     ])
     presets.value = nextPresets
@@ -56,7 +56,7 @@ const createChannel = async (request: CreateChannelRequest) => {
       name: request.name || '',
       description: request.description || '',
     }) as CreateChannelResult
-    await loadChannelPresets()
+    await loadChannelPresets(request.target)
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
     throw err

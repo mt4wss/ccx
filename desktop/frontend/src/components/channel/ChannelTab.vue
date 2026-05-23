@@ -56,10 +56,12 @@ watch(currentPreset, (preset) => {
   channelName.value = `desktop-${preset.id}-${preset.defaultTarget}`
 }, { immediate: true })
 
-// target 变化时自动切换到最匹配的 plan（如 DeepSeek 的 /anthropic ↔ /v1）
-watch(selectedTarget, (target) => {
+// target 变化时重新加载后端过滤后的 plans，并自动选中匹配的 plan
+watch(selectedTarget, async (target) => {
+  if (!target) return
+  await loadChannelPresets(target)
   const preset = currentPreset.value
-  if (!preset || !target) return
+  if (!preset) return
   selectedPlan.value = bestPlanForTarget(preset, target)
   channelName.value = `desktop-${preset.id}-${target}`
 })
