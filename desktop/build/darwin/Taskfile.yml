@@ -51,6 +51,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
           BUILD_VERSION:
             ref: .BUILD_VERSION

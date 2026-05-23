@@ -17,6 +17,9 @@ tasks:
       - task: common:generate:icons
     cmds:
       - task: generate:syso
+        vars:
+          ARCH:
+            ref: .ARCH
       - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
       - cmd: powershell Remove-item *.syso
         platforms: [windows]
@@ -52,6 +55,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
           BUILD_VERSION:
             ref: .BUILD_VERSION
@@ -77,6 +82,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
     cmds:
       - |-

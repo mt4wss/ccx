@@ -3,7 +3,6 @@
 package editor
 
 import (
-	"os"
 	"os/exec"
 )
 

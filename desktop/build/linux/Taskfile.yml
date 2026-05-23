@@ -31,6 +31,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
     cmds:
       - task: create:appimage
@@ -44,6 +46,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
           BUILD_VERSION:
             ref: .BUILD_VERSION
@@ -72,6 +76,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
     cmds:
       - task: generate:dotdesktop
@@ -82,6 +88,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
     cmds:
       - task: generate:dotdesktop
@@ -92,6 +100,8 @@ tasks:
     deps:
       - task: build
         vars:
+          ARCH:
+            ref: .ARCH
           PRODUCTION: "true"
     cmds:
       - task: generate:dotdesktop
