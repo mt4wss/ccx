@@ -399,9 +399,9 @@ func applyTargetDefaults(payload *ChannelPayload, provider string, target string
 			payload.VisionFallbackModel = "mimo-v2.5"
 		case ProviderKimi:
 			payload.ModelMapping = map[string]string{
-				"haiku":  "kimi-k2-0711-preview",
-				"opus":   "kimi-k2-0711-preview",
-				"sonnet": "kimi-k2-0711-preview",
+				"haiku":  "kimi-k2.6",
+				"opus":   "kimi-k2.6",
+				"sonnet": "kimi-k2.6",
 			}
 		case ProviderMiniMax:
 			payload.ModelMapping = map[string]string{
