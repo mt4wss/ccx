@@ -6,7 +6,7 @@ import { useStatus } from '@/composables/useStatus'
 import { useAgentConfig } from '@/composables/useAgentConfig'
 import type { AgentPlatform } from '@/types'
 
-const { status, actionError } = useStatus()
+const { actionError } = useStatus()
 const {
   agentStatuses,
   configLoading,
@@ -87,11 +87,10 @@ const handleConfirm = async () => {
         :platform="platform"
         :agent-status="agentStatuses[platform]"
         :config-loading="configLoading"
-        :service-running="status.running"
         :agent-label="agentLabels[platform]"
         :agent-status-text="agentStatusText(agentStatuses[platform])"
         :agent-status-class="agentStatusClass(agentStatuses[platform])"
-        :can-apply="canApplyAgent(platform, status.running)"
+        :can-apply="canApplyAgent(platform)"
         :selected-claude-provider="selectedClaudeProvider"
         :claude-provider-keys="claudeProviderKeys"
         :saved-provider-keys="savedProviderKeys"

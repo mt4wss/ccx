@@ -52,8 +52,8 @@ const keyPlaceholder = (provider: AgentProvider) => {
   if (props.savedProviderKeys[`claude:${provider}`]) {
     return '已保存，留空则使用已保存的 key'
   }
-  if (provider === 'mimo') return 'MiMo API Key（tp-xxx 或账号 key）'
-  return '仅写入 Claude Code 配置'
+  if (provider === 'mimo') return '必填：MiMo API Key（tp-xxx 或账号 key）'
+  return '必填：输入 API Key'
 }
 </script>
 
@@ -96,7 +96,7 @@ const keyPlaceholder = (provider: AgentProvider) => {
     </div>
 
     <div v-if="selectedProvider !== 'ccx'" class="space-y-1.5">
-      <Label class="text-xs text-muted-foreground">API Key</Label>
+      <Label class="text-xs text-muted-foreground">API Key <span class="text-destructive">*</span></Label>
       <Input
         type="password"
         autocomplete="off"

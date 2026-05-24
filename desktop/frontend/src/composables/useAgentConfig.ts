@@ -195,14 +195,17 @@ const findSavedKey = (provider: string, planID?: string): string => {
   return savedProviderKeys.value[`claude:${provider}`] || ''
 }
 
-const canApplyAgent = (platform: AgentPlatform, serviceRunning: boolean) => {
+const canApplyAgent = (platform: AgentPlatform) => {
   if (configLoading.value) return false
   if (platform === 'codex') {
-    // 切换到 OpenAI 时始终允许，后端会尝试使用 auth.json 中现有的 key 或保存的 key
-    if (selectedCodexProvider.value === 'openai') {
+    // CCX 和 OpenAI 不需要验证，后端会使用代理 key 或 auth.json 中现有的 key
+    if (selectedCodexProvider.value === 'ccx' || selectedCodexProvider.value === 'openai') {
       return true
     }
-    return true
+    // 第三方 provider 必须有输入的 key 或已保存的 key
+    const inputKey = codexOpenAIKey.value.trim()
+    const hasSaved = !!savedProviderKeys.value[`codex:${selectedCodexProvider.value}`]
+    return inputKey !== '' || hasSaved
   }
   if (selectedClaudeProvider.value === 'ccx') return true
   const provider = selectedClaudeProvider.value

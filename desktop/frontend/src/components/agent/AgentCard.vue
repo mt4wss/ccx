@@ -12,7 +12,6 @@ const props = defineProps<{
   platform: AgentPlatform
   agentStatus: AgentConfigStatus | null
   configLoading: boolean
-  serviceRunning: boolean
   agentLabel: string
   agentStatusText: string
   agentStatusClass: string
@@ -41,6 +40,11 @@ const emit = defineEmits<{
   'update:selectedCodexProvider': [value: AgentProvider]
   'update:codexOpenAIKey': [value: string]
 }>()
+
+const codexKeyRequired = computed(() => {
+  const p = props.selectedCodexProvider
+  return p !== 'ccx' && p !== 'openai'
+})
 
 const badgeClass = computed(() => {
   if (props.agentStatusClass === 'running') return 'bg-accent text-accent-foreground border-0'
@@ -108,11 +112,11 @@ const applyLabel = computed(() => '应用配置')
           </select>
         </div>
         <div v-if="selectedCodexProvider !== 'ccx'" class="space-y-1.5">
-          <Label class="text-xs text-muted-foreground">API Key</Label>
+          <Label class="text-xs text-muted-foreground">API Key <span v-if="codexKeyRequired" class="text-destructive">*</span></Label>
           <Input
             type="password"
             autocomplete="off"
-            :placeholder="savedProviderKeys?.[`codex:${selectedCodexProvider}`] ? '已保存，留空则使用已保存的 key' : '仅写入 Codex 配置'"
+            :placeholder="savedProviderKeys?.[`codex:${selectedCodexProvider}`] ? '已保存，留空则使用已保存的 key' : codexKeyRequired ? '必填：输入 API Key' : '仅写入 Codex 配置'"
             :model-value="codexOpenAIKey || ''"
             @update:model-value="emit('update:codexOpenAIKey', String($event))"
           />
