@@ -124,6 +124,125 @@ func maskTextSensitiveValues(content string, keyValues map[string]string) string
 	return result
 }
 
+// computeJSONDiffWithMask 在原始数据上计算 diff（正确识别变更），
+// 再对展示内容进行脱敏。敏感字段值虽均掩码为 "***"，但 diff 类型
+// （removed/added）基于原始值判定，用户仍能感知到变更。
+func computeJSONDiffWithMask(path string, oldData, newData map[string]any, keys ...string) FileDiff {
+	oldRaw := formatJSON(oldData)
+	newRaw := formatJSON(newData)
+	if len(keys) == 0 {
+		return computeTextDiff(path, oldRaw, newRaw)
+	}
+	oldMasked := maskTextSensitiveValues(oldRaw, extractNestedStringValues(oldData, keys))
+	newMasked := maskTextSensitiveValues(newRaw, extractNestedStringValues(newData, keys))
+	return computeTextDiffFromMasked(path, oldRaw, newRaw, oldMasked, newMasked)
+}
+
+// computeTextDiffWithMask 在原始文本上计算 diff，再对展示内容进行脱敏。
+// 用于两侧敏感值相同的场景（如 restore）。
+func computeTextDiffWithMask(path, before, after string, keyValues map[string]string) FileDiff {
+	return computeTextDiffWithSeparateMasks(path, before, after, keyValues, keyValues)
+}
+
+// computeTextDiffWithSeparateMasks 在原始文本上计算 diff，再对展示内容进行脱敏。
+// oldKeys/newKeys 分别用于脱敏 before/after 内容，避免密钥变更时单侧泄露。
+func computeTextDiffWithSeparateMasks(path, before, after string, oldKeys, newKeys map[string]string) FileDiff {
+	// 用值集合去重，避免同键名在 map 合并时旧值被新值覆盖
+	seen := make(map[string]bool, len(oldKeys)+len(newKeys))
+	for _, v := range oldKeys {
+		if v = strings.TrimSpace(v); v != "" {
+			seen[v] = true
+		}
+	}
+	for _, v := range newKeys {
+		if v = strings.TrimSpace(v); v != "" {
+			seen[v] = true
+		}
+	}
+	oldMasked, newMasked := before, after
+	for v := range seen {
+		masked := maskSensitiveValue(v)
+		oldMasked = strings.ReplaceAll(oldMasked, v, masked)
+		newMasked = strings.ReplaceAll(newMasked, v, masked)
+	}
+	return computeTextDiffFromMasked(path, before, after, oldMasked, newMasked)
+}
+
+// computeTextDiffFromMasked 在原始内容上做 LCS diff 确定变更类型，
+// 再将掩码后的内容填充到对应 diff 行。
+func computeTextDiffFromMasked(path, oldRaw, newRaw, oldMasked, newMasked string) FileDiff {
+	oldRawLines := splitLines(oldRaw)
+	newRawLines := splitLines(newRaw)
+	oldMaskedLines := splitLines(oldMasked)
+	newMaskedLines := splitLines(newMasked)
+
+	action := "modify"
+	if oldRaw == "" && newRaw != "" {
+		action = "create"
+	} else if oldRaw != "" && newRaw == "" {
+		action = "delete"
+	}
+
+	rawDiff := lcsDiff(oldRawLines, newRawLines)
+
+	// 将掩码后的内容映射到 diff 行
+	oldIdx, newIdx := 0, 0
+	lines := make([]DiffLine, len(rawDiff))
+	for i, d := range rawDiff {
+		switch d.Type {
+		case "context":
+			lines[i] = DiffLine{Type: "context", Content: oldMaskedLines[oldIdx]}
+			oldIdx++
+			newIdx++
+		case "removed":
+			lines[i] = DiffLine{Type: "removed", Content: oldMaskedLines[oldIdx]}
+			oldIdx++
+		case "added":
+			lines[i] = DiffLine{Type: "added", Content: newMaskedLines[newIdx]}
+			newIdx++
+		}
+	}
+
+	return FileDiff{Path: path, Action: action, Lines: lines}
+}
+
+// extractNestedStringValues 从 map 中提取指定 key 的字符串值，
+// 支持嵌套 map（如 env 子 map）的递归查找。
+func extractNestedStringValues(data map[string]any, keys []string) map[string]string {
+	result := make(map[string]string, len(keys))
+	if data == nil {
+		return result
+	}
+	keySet := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		keySet[k] = true
+	}
+	// 顶层直接匹配
+	for _, key := range keys {
+		if val, ok := data[key]; ok {
+			if s, ok := val.(string); ok {
+				result[key] = s
+			}
+		}
+	}
+	// 递归查找嵌套 map（如 env 子 map）
+	for _, v := range data {
+		if sub, ok := v.(map[string]any); ok {
+			for key := range keySet {
+				if _, exists := result[key]; exists {
+					continue
+				}
+				if val, ok := sub[key]; ok {
+					if s, ok := val.(string); ok {
+						result[key] = s
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
 // splitLines 将文本按换行符分割为行切片。空文本返回空切片。
 func splitLines(text string) []string {
 	if text == "" {

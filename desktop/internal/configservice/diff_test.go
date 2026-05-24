@@ -297,3 +297,148 @@ func TestComputeTextDiff_IdenticalContent(t *testing.T) {
 		}
 	}
 }
+
+func TestComputeJSONDiffWithMask_SensitiveValueChanged(t *testing.T) {
+	old := map[string]any{
+		"env": map[string]any{
+			"ANTHROPIC_AUTH_TOKEN": "old-secret-token-value",
+			"ANTHROPIC_BASE_URL":   "http://localhost:3000",
+		},
+	}
+	new := map[string]any{
+		"env": map[string]any{
+			"ANTHROPIC_AUTH_TOKEN": "new-secret-token-value",
+			"ANTHROPIC_BASE_URL":   "http://localhost:3000",
+		},
+	}
+	result := computeJSONDiffWithMask("settings.json", old, new, "ANTHROPIC_AUTH_TOKEN")
+
+	// 两个不同的 token 掩码后可能相同，diff 仍应标记为变更
+	hasRemoved := false
+	hasAdded := false
+	for _, l := range result.Lines {
+		if l.Type == "removed" {
+			hasRemoved = true
+		}
+		if l.Type == "added" {
+			hasAdded = true
+		}
+	}
+	if !hasRemoved || !hasAdded {
+		t.Errorf("sensitive value changed but diff missed it: removed=%v added=%v", hasRemoved, hasAdded)
+		for _, l := range result.Lines {
+			t.Logf("  %s: %s", l.Type, l.Content)
+		}
+	}
+
+	// 展示内容中不应包含原始敏感值
+	for _, l := range result.Lines {
+		if strings.Contains(l.Content, "old-secret-token-value") || strings.Contains(l.Content, "new-secret-token-value") {
+			t.Errorf("diff content should not expose raw sensitive value: %q", l.Content)
+		}
+	}
+}
+
+func TestComputeJSONDiffWithMask_SensitiveValueIdentical(t *testing.T) {
+	old := map[string]any{
+		"env": map[string]any{
+			"ANTHROPIC_AUTH_TOKEN": "same-token-value",
+			"ANTHROPIC_BASE_URL":   "http://localhost:3000",
+		},
+	}
+	new := map[string]any{
+		"env": map[string]any{
+			"ANTHROPIC_AUTH_TOKEN": "same-token-value",
+			"ANTHROPIC_BASE_URL":   "http://localhost:3000",
+		},
+	}
+	result := computeJSONDiffWithMask("settings.json", old, new, "ANTHROPIC_AUTH_TOKEN")
+
+	// 值完全相同，所有行应为 context
+	for _, l := range result.Lines {
+		if l.Type != "context" {
+			t.Errorf("identical sensitive values should be context, got %q: %s", l.Type, l.Content)
+		}
+	}
+}
+
+func TestComputeTextDiffWithMask_SensitiveValueChanged(t *testing.T) {
+	old := `OPENAI_API_KEY = "old-key-12345678"
+model_provider = "ccx"`
+	new := `OPENAI_API_KEY = "new-key-87654321"
+model_provider = "ccx"`
+	keyValues := map[string]string{
+		"OPENAI_API_KEY": "old-key-12345678",
+	}
+	_ = keyValues // used by masking
+
+	result := computeTextDiffWithMask("config.toml", old, new, map[string]string{
+		"OPENAI_API_KEY": "old-key-12345678",
+	})
+
+	hasRemoved := false
+	hasAdded := false
+	for _, l := range result.Lines {
+		if l.Type == "removed" {
+			hasRemoved = true
+		}
+		if l.Type == "added" {
+			hasAdded = true
+		}
+	}
+	if !hasRemoved || !hasAdded {
+		t.Errorf("sensitive text value changed but diff missed it: removed=%v added=%v", hasRemoved, hasAdded)
+	}
+}
+
+func TestExtractNestedStringValues(t *testing.T) {
+	data := map[string]any{
+		"env": map[string]any{
+			"ANTHROPIC_AUTH_TOKEN": "token123",
+			"ANTHROPIC_BASE_URL":   "http://localhost",
+		},
+		"OTHER": 42,
+	}
+	result := extractNestedStringValues(data, []string{"ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "MISSING"})
+	if result["ANTHROPIC_AUTH_TOKEN"] != "token123" {
+		t.Errorf("expected token123, got %q", result["ANTHROPIC_AUTH_TOKEN"])
+	}
+	if result["ANTHROPIC_BASE_URL"] != "http://localhost" {
+		t.Errorf("expected http://localhost, got %q", result["ANTHROPIC_BASE_URL"])
+	}
+	if _, ok := result["MISSING"]; ok {
+		t.Error("missing key should not be in result")
+	}
+}
+
+func TestComputeTextDiffWithSeparateMasks_KeyChanged(t *testing.T) {
+	before := `OPENAI_API_KEY = "old-key-aaaabbbb"
+model_provider = "ccx"`
+	after := `OPENAI_API_KEY = "new-key-ccccdddd"
+model_provider = "ccx"`
+	oldKeys := map[string]string{"OPENAI_API_KEY": "old-key-aaaabbbb"}
+	newKeys := map[string]string{"OPENAI_API_KEY": "new-key-ccccdddd"}
+
+	result := computeTextDiffWithSeparateMasks("config.toml", before, after, oldKeys, newKeys)
+
+	hasRemoved := false
+	hasAdded := false
+	for _, l := range result.Lines {
+		if l.Type == "removed" {
+			hasRemoved = true
+		}
+		if l.Type == "added" {
+			hasAdded = true
+		}
+		// Both old and new raw keys must be masked
+		if strings.Contains(l.Content, "old-key-aaaabbbb") {
+			t.Errorf("old key leaked in diff line: %q", l.Content)
+		}
+		if strings.Contains(l.Content, "new-key-ccccdddd") {
+			t.Errorf("new key leaked in diff line: %q", l.Content)
+		}
+	}
+	if !hasRemoved || !hasAdded {
+		t.Errorf("key change not detected: removed=%v added=%v", hasRemoved, hasAdded)
+	}
+}

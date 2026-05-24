@@ -1251,7 +1251,7 @@ func (s *Service) previewApplyClaude(req ApplyAgentConfigRequest, port int, acce
 	if err != nil {
 		return ConfigDiffResult{}, err
 	}
-	oldData := maskJSONSensitiveKeys(copyJSONMap(data))
+	oldData := copyJSONMap(data)
 
 	env, _ := data["env"].(map[string]any)
 	if env == nil {
@@ -1269,9 +1269,9 @@ func (s *Service) previewApplyClaude(req ApplyAgentConfigRequest, port int, acce
 	} else {
 		delete(env, "ANTHROPIC_API_KEY")
 	}
-	newData := maskJSONSensitiveKeys(data)
+	newData := data
 
-	files := []FileDiff{computeJSONDiff(path, oldData, newData)}
+	files := []FileDiff{computeJSONDiffWithMask(path, oldData, newData, sensitiveFieldKeys...)}
 
 	if provider == ProviderCCX {
 		configPath := s.claudeConfigPath()
@@ -1306,17 +1306,16 @@ func (s *Service) previewApplyCodex(port int, accessKey string) (ConfigDiffResul
 	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "ccx")
 	updatedConfig = upsertNamedTomlBlock(updatedConfig, "model_providers.ccx", codexProviderBlock(targetURL))
 
-	keyValues := map[string]string{"OPENAI_API_KEY": accessKey}
-	oldConfig := maskTextSensitiveValues(configContent, keyValues)
-	newConfig := maskTextSensitiveValues(updatedConfig, keyValues)
+	oldKey, _ := authData["OPENAI_API_KEY"].(string)
+	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
+	newKeyValues := map[string]string{"OPENAI_API_KEY": accessKey}
 
 	newAuthData := copyJSONMap(authData)
 	newAuthData["OPENAI_API_KEY"] = accessKey
-	newAuthMasked := maskMapSensitiveKeys(newAuthData, "OPENAI_API_KEY")
 
 	return ConfigDiffResult{Files: []FileDiff{
-		computeTextDiff(configPath, oldConfig, newConfig),
-		computeJSONDiff(authPath, maskMapSensitiveKeys(authData, "OPENAI_API_KEY"), newAuthMasked),
+		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
 	}}, nil
 }
 
@@ -1350,22 +1349,19 @@ func (s *Service) previewApplyCodexOpenAI(apiKey string) (ConfigDiffResult, erro
 		key = "[未配置]"
 	}
 
-	keyValues := map[string]string{"OPENAI_API_KEY": key}
+	oldKey, _ := authData["OPENAI_API_KEY"].(string)
+	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
+	newKeyValues := map[string]string{"OPENAI_API_KEY": key}
 	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "openai")
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil)
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.openai", nil)
 
-	oldConfig := maskTextSensitiveValues(configContent, keyValues)
-	newConfig := maskTextSensitiveValues(updatedConfig, keyValues)
-
 	newAuthData := copyJSONMap(authData)
 	newAuthData["OPENAI_API_KEY"] = key
-	oldAuthMasked := maskMapSensitiveKeys(authData, "OPENAI_API_KEY")
-	newAuthMasked := maskMapSensitiveKeys(newAuthData, "OPENAI_API_KEY")
 
 	return ConfigDiffResult{Files: []FileDiff{
-		computeTextDiff(configPath, oldConfig, newConfig),
-		computeJSONDiff(authPath, oldAuthMasked, newAuthMasked),
+		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
 	}}, nil
 }
 
@@ -1389,7 +1385,9 @@ func (s *Service) previewApplyCodexThirdParty(provider, baseURL, apiKey string) 
 		key = "[未配置]"
 	}
 
-	keyValues := map[string]string{"OPENAI_API_KEY": key}
+	oldKey, _ := authData["OPENAI_API_KEY"].(string)
+	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
+	newKeyValues := map[string]string{"OPENAI_API_KEY": key}
 
 	block := fmt.Sprintf(`[model_providers.%s]
 name = %q
@@ -1402,17 +1400,12 @@ wire_api = "responses"
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.openai", nil)
 	updatedConfig = upsertNamedTomlBlock(updatedConfig, "model_providers."+provider, block)
 
-	oldConfig := maskTextSensitiveValues(configContent, keyValues)
-	newConfig := maskTextSensitiveValues(updatedConfig, keyValues)
-
 	newAuthData := copyJSONMap(authData)
 	newAuthData["OPENAI_API_KEY"] = key
-	oldAuthMasked := maskMapSensitiveKeys(authData, "OPENAI_API_KEY")
-	newAuthMasked := maskMapSensitiveKeys(newAuthData, "OPENAI_API_KEY")
 
 	return ConfigDiffResult{Files: []FileDiff{
-		computeTextDiff(configPath, oldConfig, newConfig),
-		computeJSONDiff(authPath, oldAuthMasked, newAuthMasked),
+		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
 	}}, nil
 }
 
@@ -1424,16 +1417,15 @@ func (s *Service) previewRestoreClaude() (ConfigDiffResult, error) {
 	path := state.TargetPath
 	if !state.FileExisted {
 		data, _, _ := readJSONMap(path)
-		oldMasked := maskJSONSensitiveKeys(data)
 		return ConfigDiffResult{Files: []FileDiff{
-			computeJSONDiff(path, oldMasked, nil),
+			computeJSONDiffWithMask(path, data, nil, sensitiveFieldKeys...),
 		}}, nil
 	}
 	data, _, err := readJSONMap(path)
 	if err != nil {
 		return ConfigDiffResult{}, err
 	}
-	oldMasked := maskJSONSensitiveKeys(copyJSONMap(data))
+	oldData := copyJSONMap(data)
 
 	env, _ := data["env"].(map[string]any)
 	if env == nil {
@@ -1446,10 +1438,9 @@ func (s *Service) previewRestoreClaude() (ConfigDiffResult, error) {
 	if !state.EnvExisted && len(env) == 0 {
 		delete(data, "env")
 	}
-	newMasked := maskJSONSensitiveKeys(data)
 
 	return ConfigDiffResult{Files: []FileDiff{
-		computeJSONDiff(path, oldMasked, newMasked),
+		computeJSONDiffWithMask(path, oldData, data, sensitiveFieldKeys...),
 	}}, nil
 }
 
@@ -1484,14 +1475,12 @@ func (s *Service) previewRestoreCodex() (ConfigDiffResult, error) {
 		if err != nil {
 			return ConfigDiffResult{}, err
 		}
-		oldMasked := maskMapSensitiveKeys(authData, "OPENAI_API_KEY")
 		restoredAuth := copyJSONMap(authData)
 		restoreStringField(restoredAuth, "OPENAI_API_KEY", state.OriginalOpenAIAPIKey)
-		newMasked := maskMapSensitiveKeys(restoredAuth, "OPENAI_API_KEY")
-		files = append(files, computeJSONDiff(state.AuthPath, oldMasked, newMasked))
+		files = append(files, computeJSONDiffWithMask(state.AuthPath, authData, restoredAuth, "OPENAI_API_KEY"))
 	} else {
 		authData, _, _ := readJSONMap(state.AuthPath)
-		files = append(files, computeJSONDiff(state.AuthPath, maskMapSensitiveKeys(authData, "OPENAI_API_KEY"), nil))
+		files = append(files, computeJSONDiffWithMask(state.AuthPath, authData, nil, "OPENAI_API_KEY"))
 	}
 
 	return ConfigDiffResult{Files: files}, nil
