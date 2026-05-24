@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import type { ConfigDiffResult, FileDiff } from '@/types'
+import type { ConfigDiffResult, DiffLine, FileDiff } from '@/types'
+
+const CONTEXT_THRESHOLD = 4
+const CONTEXT_KEEP = 2
+
+type DisplayLine =
+  | { kind: 'line'; line: DiffLine; origIndex: number }
+  | { kind: 'collapsed'; id: string; lines: DiffLine[]; startOrigIndex: number }
 
 const props = defineProps<{
   open: boolean
@@ -44,6 +51,70 @@ const actionBadgeClass = (action: string) => {
     default: return 'bg-blue-500/20 text-blue-400 border-0'
   }
 }
+
+// --- Context folding ---
+
+const collapsedSections = ref(new Set<string>())
+
+function toggleCollapse(id: string) {
+  if (collapsedSections.value.has(id)) {
+    collapsedSections.value.delete(id)
+  } else {
+    collapsedSections.value.add(id)
+  }
+}
+
+function isExpanded(id: string): boolean {
+  return collapsedSections.value.has(id)
+}
+
+function collapseContextLines(file: FileDiff, fileIndex: number): DisplayLine[] {
+  const result: DisplayLine[] = []
+  let runStart = -1
+
+  const flushRun = (end: number) => {
+    const run = file.lines.slice(runStart, end)
+    if (run.length <= CONTEXT_THRESHOLD) {
+      run.forEach((line, i) => result.push({ kind: 'line', line, origIndex: runStart + i }))
+    } else {
+      const hidden = run.slice(CONTEXT_KEEP, run.length - CONTEXT_KEEP)
+      const id = `${fileIndex}-c-${runStart}`
+      // head
+      for (let i = 0; i < CONTEXT_KEEP; i++) {
+        result.push({ kind: 'line', line: run[i], origIndex: runStart + i })
+      }
+      // collapsed marker
+      result.push({ kind: 'collapsed', id, lines: hidden, startOrigIndex: runStart + CONTEXT_KEEP })
+      // tail
+      for (let i = run.length - CONTEXT_KEEP; i < run.length; i++) {
+        result.push({ kind: 'line', line: run[i], origIndex: runStart + i })
+      }
+    }
+  }
+
+  for (let i = 0; i < file.lines.length; i++) {
+    if (file.lines[i].type === 'context') {
+      if (runStart === -1) runStart = i
+    } else {
+      if (runStart !== -1) {
+        flushRun(i)
+        runStart = -1
+      }
+      result.push({ kind: 'line', line: file.lines[i], origIndex: i })
+    }
+  }
+  if (runStart !== -1) flushRun(file.lines.length)
+
+  return result
+}
+
+const processedFiles = computed(() => {
+  if (!props.result) return []
+  return props.result.files.map((file, fi) => ({
+    file,
+    displayLines: collapseContextLines(file, fi),
+  }))
+})
 </script>
 
 <template>
@@ -80,7 +151,7 @@ const actionBadgeClass = (action: string) => {
             <!-- Diff blocks -->
             <template v-else>
               <div
-                v-for="file in result.files"
+                v-for="{ file, displayLines } in processedFiles"
                 :key="file.path"
                 class="rounded-lg border border-white/[0.06] overflow-hidden"
               >
@@ -96,36 +167,82 @@ const actionBadgeClass = (action: string) => {
                 <div class="overflow-x-auto">
                   <table class="w-full text-xs font-mono">
                     <tbody>
-                      <tr
-                        v-for="(line, idx) in file.lines"
-                        :key="idx"
-                        :class="{
-                          'bg-emerald-500/[0.07]': line.type === 'added',
-                          'bg-red-500/[0.07]': line.type === 'removed',
-                        }"
-                      >
-                        <td class="w-8 text-right pr-2 py-0.5 select-none text-white/20 align-top">
-                          {{ idx + 1 }}
-                        </td>
-                        <td class="w-4 text-center py-0.5 select-none align-top"
+                      <template v-for="item in displayLines" :key="item.kind === 'collapsed' ? item.id : item.origIndex">
+                        <!-- Normal diff line -->
+                        <tr
+                          v-if="item.kind === 'line'"
                           :class="{
-                            'text-emerald-400': line.type === 'added',
-                            'text-red-400': line.type === 'removed',
-                            'text-white/20': line.type === 'context',
+                            'bg-emerald-500/[0.07]': item.line.type === 'added',
+                            'bg-red-500/[0.07]': item.line.type === 'removed',
                           }"
                         >
-                          {{ line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' ' }}
-                        </td>
-                        <td class="py-0.5 pr-4 whitespace-pre-wrap break-all"
-                          :class="{
-                            'text-emerald-300/80': line.type === 'added',
-                            'text-red-300/80': line.type === 'removed',
-                            'text-white/30': line.type === 'context',
-                          }"
-                        >
-                          {{ line.content || ' ' }}
-                        </td>
-                      </tr>
+                          <td class="w-8 text-right pr-2 py-0.5 select-none text-white/20 align-top">
+                            {{ item.origIndex + 1 }}
+                          </td>
+                          <td class="w-4 text-center py-0.5 select-none align-top"
+                            :class="{
+                              'text-emerald-400': item.line.type === 'added',
+                              'text-red-400': item.line.type === 'removed',
+                              'text-white/20': item.line.type === 'context',
+                            }"
+                          >
+                            {{ item.line.type === 'added' ? '+' : item.line.type === 'removed' ? '-' : ' ' }}
+                          </td>
+                          <td class="py-0.5 pr-4 whitespace-pre-wrap break-all"
+                            :class="{
+                              'text-emerald-300/80': item.line.type === 'added',
+                              'text-red-300/80': item.line.type === 'removed',
+                              'text-white/30': item.line.type === 'context',
+                            }"
+                          >
+                            {{ item.line.content || ' ' }}
+                          </td>
+                        </tr>
+
+                        <!-- Collapsed marker (not yet expanded) -->
+                        <tr v-else-if="!isExpanded(item.id)" class="group">
+                          <td colspan="3" class="py-1 px-4">
+                            <button
+                              class="w-full flex items-center justify-center gap-1.5 py-1 rounded text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                              @click="toggleCollapse(item.id)"
+                            >
+                              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16" />
+                              </svg>
+                              <span>展开 {{ item.lines.length }} 行未变更内容</span>
+                            </button>
+                          </td>
+                        </tr>
+
+                        <!-- Expanded hidden lines -->
+                        <template v-else>
+                          <tr class="group">
+                            <td colspan="3" class="py-1 px-4">
+                              <button
+                                class="w-full flex items-center justify-center gap-1.5 py-1 rounded text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                                @click="toggleCollapse(item.id)"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                                </svg>
+                                <span>收起 {{ item.lines.length }} 行</span>
+                              </button>
+                            </td>
+                          </tr>
+                          <tr
+                            v-for="(hidden, hi) in item.lines"
+                            :key="`${item.id}-${hi}`"
+                          >
+                            <td class="w-8 text-right pr-2 py-0.5 select-none text-white/20 align-top">
+                              {{ item.startOrigIndex + hi + 1 }}
+                            </td>
+                            <td class="w-4 text-center py-0.5 select-none text-white/20 align-top"> </td>
+                            <td class="py-0.5 pr-4 whitespace-pre-wrap break-all text-white/30">
+                              {{ hidden.content || ' ' }}
+                            </td>
+                          </tr>
+                        </template>
+                      </template>
                     </tbody>
                   </table>
                 </div>
