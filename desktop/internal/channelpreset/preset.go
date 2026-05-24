@@ -397,7 +397,6 @@ func applyTargetDefaults(payload *ChannelPayload, provider string, target string
 			payload.CodexToolCompat = false
 			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
 			payload.VisionFallbackModel = "mimo-v2.5"
-			payload.SupportedModels = []string{"mimo-v2.5-pro", "mimo-v2.5"}
 		}
 	case TargetChat:
 		payload.ServiceType = "openai"
@@ -407,20 +406,15 @@ func applyTargetDefaults(payload *ChannelPayload, provider string, target string
 			payload.ReasoningParamStyle = "reasoning"
 			payload.CodexToolCompat = false
 			payload.NoVision = true
-			payload.SupportedModels = []string{"deepseek-v4-*"}
 		case ProviderMiMo:
 			payload.ModelMapping = map[string]string{"gpt": "mimo-v2.5-pro"}
 			payload.ReasoningParamStyle = "reasoning"
 			payload.CodexToolCompat = false
-			payload.SupportedModels = []string{"mimo-v2.5-pro", "mimo-v2.5"}
 			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
 			payload.VisionFallbackModel = "mimo-v2.5"
 		case ProviderKimi:
-			payload.SupportedModels = []string{"moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k", "kimi-k2-0711-preview"}
 		case ProviderGLM:
-			payload.SupportedModels = []string{"glm-4.5", "glm-4.5-air", "glm-4.1v-thinking-flash"}
 		case ProviderMiniMax:
-			payload.SupportedModels = []string{"MiniMax-M1", "MiniMax-Text-01"}
 		}
 	case TargetResponses:
 		payload.ServiceType = "openai"
@@ -444,15 +438,11 @@ func applyTargetDefaults(payload *ChannelPayload, provider string, target string
 			payload.ReasoningParamStyle = "reasoning"
 			payload.CodexToolCompat = false
 			payload.StripCodexClientTools = false
-			payload.SupportedModels = []string{"mimo-v2.5-pro", "mimo-v2.5"}
 			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
 			payload.VisionFallbackModel = "mimo-v2.5"
 		case ProviderKimi:
-			payload.SupportedModels = []string{"moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k", "kimi-k2-0711-preview"}
 		case ProviderGLM:
-			payload.SupportedModels = []string{"glm-4.5", "glm-4.5-air", "glm-4.1v-thinking-flash"}
 		case ProviderMiniMax:
-			payload.SupportedModels = []string{"MiniMax-M1", "MiniMax-Text-01"}
 		}
 	}
 }
