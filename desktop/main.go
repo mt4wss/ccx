@@ -175,8 +175,25 @@ func run() error {
 		}
 	}
 
+	setDockIconVisible := func(visible bool) {
+		if runtime.GOOS != "darwin" {
+			return
+		}
+		if visible {
+			dockService.ShowAppIcon()
+		} else {
+			dockService.HideAppIcon()
+		}
+	}
+
+	hideMainWindow := func() {
+		mainWindow.Hide()
+		setDockIconVisible(false)
+	}
+
 	var mainWindowCentered = hasPersistedState
 	showMainWindow := func(withFocus bool) {
+		setDockIconVisible(true)
 		if !mainWindowCentered {
 			mainWindow.Center()
 			mainWindowCentered = true
@@ -201,8 +218,14 @@ func run() error {
 
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		saveWindowState()
-		mainWindow.Hide()
+		hideMainWindow()
 		e.Cancel()
+	})
+	mainWindow.RegisterHook(events.Common.WindowMinimise, func(e *application.WindowEvent) {
+		setDockIconVisible(false)
+	})
+	mainWindow.RegisterHook(events.Common.WindowUnMinimise, func(e *application.WindowEvent) {
+		setDockIconVisible(true)
 	})
 
 	app.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(event *application.ApplicationEvent) {
@@ -409,7 +432,7 @@ func run() error {
 	tray.OnClick(func() {
 		if mainWindow.IsVisible() {
 			saveWindowState()
-			mainWindow.Hide()
+			hideMainWindow()
 		} else {
 			showMainWindow(true)
 		}
