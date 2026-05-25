@@ -3,6 +3,12 @@
 ### 修复
 
 - **桌面 App 内嵌 Web UI 删除渠道不生效** (#115) - Wails 3 的 WKWebView 在 iframe 上下文中对原生 `window.confirm()` 不弹对话框、静默返回 `false`，导致删除请求从未发出；替换为 Vuetify `v-dialog` 实现的通用确认框，兼容桌面 iframe 与浏览器双入口
+- **LogViewer autoScroll 开关失效，新日志仍强制滚动** - 移除对 `filteredLogs` 的冗余 watch，改为监听 `searchQuery` 仅在用户改变搜索关键字时强制滚动；新日志增加时改走受 `autoScroll` 控制的 `props.logs.length` watch
+- **缩短引导界面生成的 PROXY_ACCESS_KEY 长度** - 随机熵从 24 字节降为 8 字节，密钥从 `ccx-` + 48 字符 hex（52 字符）改为 `ccx-` + 16 字符 hex（20 字符）；64 位熵对本地代理网关已足够安全，显著改善初始引导界面的可读性与可复制性
+
+### 文档
+
+- **修正渠道名称说明，反映同名覆盖的实际行为** - 后端 `createChannel` 在检测到同名渠道时会执行 PUT 覆盖更新，原文案 "如重复，CCX 会拒绝创建" 与实际行为不符，容易造成误导
 
 ## [v2.8.0] - 2026-05-25
 
