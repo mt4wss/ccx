@@ -2,6 +2,7 @@
 
 ### 修复
 
+- **桌面端渠道预设模型重定向键统一为 `gpt-5`** - MiMo、MiniMax、OpenCode Zen、OpenCode Go 的 Chat / Codex Responses 单模型重定向现在统一使用 `gpt-5` 作为源模型键，匹配 Codex / Chat 客户端实际请求模型；同时集中整理渠道预设的模型映射、reasoning 映射和 Codex 兼容开关配置。
 - **桌面端中文系统默认语言仍为英文** - 环境配置表单在 `.env` 缺少 `APP_UI_LANGUAGE` 时会读取 WebView 暴露的系统/浏览器语言，中文系统默认填入 `zh-CN`，非中文系统继续默认 `en`，且不会覆盖用户已有 `.env` 设置。
 - **桌面端 MiniMax 渠道预设与 Codex 兼容配置不完整** - MiniMax Responses 预设现在使用 `gpt-5 -> MiniMax-M2.7` 模型映射，并启用非标准 Chat 角色归一化；同步补充渠道预设测试对归一化字段的断言。
 - **桌面端 Codex 应用 CCX 渠道时 auth 密钥不一致** - Codex Agent 配置现在优先读取桌面 dataDir、项目根目录和 `backend-go` 下 `.env` 中的 `PROXY_ACCESS_KEY`，再回退到进程环境变量或自动生成值，避免 `~/.codex/auth.json` 写入与实际后端配置不一致的密钥；同时增强 `.env` 解析以兼容 `export PROXY_ACCESS_KEY=...` 和等号周围空格。
