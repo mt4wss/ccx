@@ -309,9 +309,13 @@ func (m *Manager) Status(ctx context.Context) Status {
 	if health, err := m.fetchHealth(ctx, status.Port); err == nil {
 		status.Health = health
 		status.Running = true
+		status.LastError = ""
 		if status.PID == 0 {
 			status.Attached = true
 		}
+		m.mu.Lock()
+		m.lastError = ""
+		m.mu.Unlock()
 	} else {
 		m.mu.Lock()
 		if m.attached && m.cmd == nil {
@@ -531,10 +535,11 @@ func (m *Manager) waitProcess(cmd *exec.Cmd, done chan error) {
 	close(done)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.cmd == cmd {
-		m.cmd = nil
-		m.done = nil
+	if m.cmd != cmd {
+		return
 	}
+	m.cmd = nil
+	m.done = nil
 	if err != nil && !strings.Contains(err.Error(), "signal") {
 		m.lastError = err.Error()
 		m.addLogLocked("[Desktop-Backend] CCX 进程退出: " + err.Error())

@@ -215,9 +215,15 @@ func (s *DesktopService) StopService() error {
 }
 
 func (s *DesktopService) RestartService() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	return s.manager.Restart(ctx)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer stopCancel()
+	if err := s.manager.Stop(stopCtx); err != nil {
+		return err
+	}
+
+	startCtx, startCancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer startCancel()
+	return s.manager.Start(startCtx)
 }
 
 func (s *DesktopService) GetLogs() []string {
