@@ -6,7 +6,7 @@ const props = withDefaults(defineProps<{
   animated?: boolean
 }>(), {
   size: 32,
-  animated: false
+  animated: true
 })
 
 const sizeStyle = computed(() => {
