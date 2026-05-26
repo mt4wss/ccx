@@ -191,7 +191,7 @@ def main(argv: list[str]) -> int:
         shutil.copytree(app_path, display_app)
 
         display_name = args.volume_name or app_name
-        alias_path = alias_path or (work / f"{display_name}.app")
+        alias_path = alias_path or (work / "Applications")
         alias_path.unlink(missing_ok=True)
 
         _create_alias(alias_path, Path("/Applications"))
@@ -286,7 +286,7 @@ def main(argv: list[str]) -> int:
             'tell application "Finder"',
             "    set dg to POSIX file \"" + str(mount_point.as_posix()) + "\" as alias",
             "    set position of item \"" + app_path.name + "\" of front window to {" + str(app_x) + ", " + str(app_y) + "}",
-            "    set position of item \"" + display_name + "\" of front window to {" + str(applications_x) + ", " + str(applications_y) + "}",
+            "    set position of item \"Applications\" of front window to {" + str(applications_x) + ", " + str(applications_y) + "}",
             "end tell",
         ]
         subprocess.run(["osascript", "-e", "\n".join(position_script)], check=True)
