@@ -493,14 +493,15 @@ var channelTargetConfigs = map[string]map[string]channelTargetConfig{
 			VisionFallbackModel:      "mimo-v2.5",
 		},
 		ProviderCompshare: {
-				ModelMapping: map[string]string{
-					"haiku":  "deepseek-v4-flash",
-					"opus":   "glm-5.1",
-					"sonnet": "glm-5.1",
+			ModelMapping: map[string]string{
+				"haiku":  "deepseek-v4-flash",
+				"opus":   "glm-5.1",
+				"sonnet": "glm-5.1",
 			},
 			ReasoningParamStyle:      "reasoning",
 			PassbackReasoningContent: true,
-			NoVision:                 true,
+			NoVisionModels:           []string{"deepseek-v4-flash"},
+			VisionFallbackModel:      "MiniMax-M2.7",
 		},
 		ProviderKimi: {
 			ModelMapping: map[string]string{
@@ -552,50 +553,19 @@ var channelTargetConfigs = map[string]map[string]channelTargetConfig{
 			NoVision:            true,
 		},
 		ProviderMiMo: {
-			ModelMapping:        map[string]string{"gpt-5": "mimo-v2.5-pro"},
-			ReasoningParamStyle: "reasoning",
-			NoVisionModels:      []string{"mimo-v2.5-pro"},
-			VisionFallbackModel: "mimo-v2.5",
-		},
+				ReasoningParamStyle: "reasoning",
+				NoVisionModels:     []string{"mimo-v2.5-pro"},
+				VisionFallbackModel: "mimo-v2.5",
+			},
 		ProviderCompshare: {
-				ModelMapping: map[string]string{
-					"gpt-5.5":       "glm-5.1",
-					"gpt-5.4":       "glm-5.1",
-					"gpt-5.4-mini":  "deepseek-v4-flash",
-					"gpt-5.3-codex": "glm-5.1",
-			},
-			ReasoningMapping: map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
-			},
 			ReasoningParamStyle: "reasoning",
-			NoVision:            true,
+			NoVisionModels:      []string{"deepseek-v4-flash"},
+			VisionFallbackModel: "MiniMax-M2.7",
 		},
-		ProviderMiniMax: {
-			ModelMapping: map[string]string{"gpt-5": "MiniMax-M2.7"},
-		},
-		ProviderDashScope: {
-			ModelMapping: map[string]string{
-				"gpt-5.5":       "glm-5.1",
-				"gpt-5.4":       "deepseek-v4-pro",
-				"gpt-5.4-mini":  "deepseek-v4-flash",
-				"gpt-5.3-codex": "deepseek-v4-flash",
-			},
-			ReasoningMapping: map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
-			},
-		},
-		ProviderOpenCodeZen: {
-			ModelMapping: map[string]string{"gpt-5": "glm-5.1"},
-		},
-		ProviderOpenCodeGo: {
-			ModelMapping: map[string]string{"gpt-5": "glm-5.1"},
-		},
+		ProviderMiniMax: {},
+		ProviderDashScope: {},
+		ProviderOpenCodeZen: {},
+		ProviderOpenCodeGo: {},
 	},
 	TargetResponses: {
 		ProviderDeepSeek: {
@@ -623,17 +593,17 @@ var channelTargetConfigs = map[string]map[string]channelTargetConfig{
 				ModelMapping: map[string]string{
 					"gpt":  "glm-5.1",
 					"mini": "deepseek-v4-flash",
+				},
+				ReasoningParamStyle:           "reasoning",
+				CodexToolCompat:               boolRef(false),
+				StripCodexClientTools:         boolRef(false),
+				CodexNativeToolPassthrough:    true,
+				NormalizeNonstandardChatRoles: true,
+				NoVisionModels:                []string{"deepseek-v4-flash"},
+				VisionFallbackModel:           "MiniMax-M2.7",
 			},
-			ReasoningMapping:              map[string]string{"gpt": "max"},
-			ReasoningParamStyle:           "reasoning",
-			CodexToolCompat:               boolRef(false),
-			StripCodexClientTools:         boolRef(false),
-			CodexNativeToolPassthrough:    true,
-			NormalizeNonstandardChatRoles: true,
-			NoVision:                      true,
-		},
-		ProviderMiniMax: {
-			ModelMapping:                  map[string]string{"gpt-5": "MiniMax-M2.7"},
+			ProviderMiniMax: {
+				ModelMapping:                  map[string]string{"gpt-5": "MiniMax-M2.7"},
 			CodexToolCompat:               boolRef(false),
 			StripCodexClientTools:         boolRef(false),
 			CodexNativeToolPassthrough:    true,

@@ -2,7 +2,16 @@
 
 ### 新增
 
-- **macOS DMG 拖拽安装布局增强** - 桌面端 macOS DMG 安装包现在内置自定义背景图与 Applications 快捷方式，支持 Finder 窗口尺寸、图标大小和拖拽位置配置；发布流程将默认 `create-dmg` 替换为 Taskfile + `pack_dmg.py` 自动化布局构建。
+- **Images 渠道内置模型列表新增 gpt-image-2** - 前端 Images 渠道的内置模型选项新增 `gpt-image-2`。
+- **渠道中心 provider 官方控制台链接** - 桌面端渠道中心为各 provider 添加官方控制台访问链接，方便快速跳转管理；badges 与链接布局调整至标题同行，避免错位。
+
+### 变更
+
+- **Compshare 渠道预设调整** - 高级模型重定向（opus/sonnet/gpt-5.4）从 deepseek-v4-pro 改为 glm-5.1；Chat/Responses 渠道移除内置模型重定向（用户自行在客户端指定模型）；视觉策略从全渠道 NoVision 改为仅 deepseek-v4-flash 关闭视觉，并设置 MiniMax-M2.7 为视觉回退模型。
+
+### 修复
+
+- **DMG 打包回退为 create-dmg** - 尝试 Taskfile + Python 脚本自动化布局后，因背景图与快捷方式位置多次调整效果不理想，回退为 `create-dmg` 标准打包流程，保留自定义背景图与 Applications 快捷方式拖拽支持。
 
 ## [v2.8.5] - 2026-05-26
 
