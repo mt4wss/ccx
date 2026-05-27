@@ -26,6 +26,7 @@ const props = defineProps<{
   savedProviderKeys?: Record<string, string>
   claudeMimoBaseUrl?: string
   selectedMimoPlan?: string
+  selectedDashScopePlan?: string
   claudeProviderLabel?: (value?: string) => string
   claudeTargetBaseUrl?: () => string
   selectedCodexProvider?: AgentProvider
@@ -42,6 +43,7 @@ const emit = defineEmits<{
   'update:claudeProviderKeys': [value: Record<AgentProvider, string>]
   'update:claudeMimoBaseUrl': [value: string]
   'update:selectedMimoPlan': [value: string]
+  'update:selectedDashScopePlan': [value: string]
   'update:selectedCodexProvider': [value: AgentProvider]
   'update:codexOpenAIKey': [value: string]
 }>()
@@ -151,10 +153,12 @@ const openFileInEditor = async (filePath: string) => {
         :saved-provider-keys="savedProviderKeys || {}"
         :mimo-base-url="claudeMimoBaseUrl!"
         :selected-mimo-plan="selectedMimoPlan || 'https://api.xiaomimimo.com/anthropic'"
+        :selected-dash-scope-plan="selectedDashScopePlan || 'https://dashscope.aliyuncs.com/apps/anthropic'"
         @update:selected-provider="emit('update:selectedClaudeProvider', $event)"
         @update:provider-keys="emit('update:claudeProviderKeys', $event)"
         @update:mimo-base-url="emit('update:claudeMimoBaseUrl', $event)"
         @update:selected-mimo-plan="emit('update:selectedMimoPlan', $event)"
+        @update:selected-dash-scope-plan="emit('update:selectedDashScopePlan', $event)"
       />
       <div v-else-if="platform === 'codex'" class="space-y-3">
         <div class="space-y-1.5">

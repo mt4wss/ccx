@@ -70,6 +70,7 @@ const savedProviderKeys = ref<Record<string, string>>({})
 const codexOpenAIKey = ref('')
 const claudeMimoBaseUrl = ref('https://api.xiaomimimo.com/anthropic')
 const selectedMimoPlan = ref('https://api.xiaomimimo.com/anthropic')
+const selectedDashScopePlan = ref('https://dashscope.aliyuncs.com/apps/anthropic')
 const selectedCodexProvider = ref<AgentProvider>('ccx')
 
 // Diff preview dialog state
@@ -110,7 +111,7 @@ const claudeTargetBaseUrl = () => {
     case 'minimax':
       return 'https://api.minimaxi.com/anthropic'
     case 'dashscope':
-      return 'https://dashscope.aliyuncs.com/apps/anthropic'
+      return selectedDashScopePlan.value
     case 'opencode-zen':
       return 'https://opencode.ai/zen'
     case 'opencode-go':
@@ -161,6 +162,14 @@ const resolveMiMoPlan = (url: string): string => {
   return known.includes(url) ? url : ''
 }
 
+const resolveDashScopePlan = (url: string): string => {
+  const known = [
+    'https://dashscope.aliyuncs.com/apps/anthropic',
+    'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+  ]
+  return known.includes(url) ? url : ''
+}
+
 const loadAgentStatuses = async () => {
   configLoading.value = true
   try {
@@ -179,6 +188,9 @@ const loadAgentStatuses = async () => {
     if (claude.provider === 'mimo' && claude.currentBaseUrl) {
       claudeMimoBaseUrl.value = claude.currentBaseUrl
       selectedMimoPlan.value = resolveMiMoPlan(claude.currentBaseUrl)
+    }
+    if (claude.provider === 'dashscope' && claude.currentBaseUrl) {
+      selectedDashScopePlan.value = resolveDashScopePlan(claude.currentBaseUrl)
     }
     if (codex.provider && codex.provider !== 'ccx' && codex.provider !== '') {
       selectedCodexProvider.value = codex.provider as AgentProvider
@@ -215,7 +227,10 @@ const canApplyAgent = (platform: AgentPlatform) => {
   if (selectedClaudeProvider.value === 'ccx') return true
   const provider = selectedClaudeProvider.value
   const inputKey = claudeProviderKeys.value[provider].trim()
-  const hasSaved = !!findSavedKey(provider, selectedMimoPlan.value)
+  const planID = provider === 'mimo' ? selectedMimoPlan.value
+    : provider === 'dashscope' ? selectedDashScopePlan.value
+    : undefined
+  const hasSaved = !!findSavedKey(provider, planID)
   return inputKey !== '' || hasSaved
 }
 
@@ -227,10 +242,16 @@ const applyAgent = async (platform: AgentPlatform) => {
       request.provider = selectedClaudeProvider.value
       if (selectedClaudeProvider.value !== 'ccx') {
         const inputKey = claudeProviderKeys.value[selectedClaudeProvider.value].trim()
-        request.apiKey = inputKey || findSavedKey(selectedClaudeProvider.value, selectedMimoPlan.value)
+        const planID = selectedClaudeProvider.value === 'mimo' ? selectedMimoPlan.value
+          : selectedClaudeProvider.value === 'dashscope' ? selectedDashScopePlan.value
+          : undefined
+        request.apiKey = inputKey || findSavedKey(selectedClaudeProvider.value, planID)
       }
       if (selectedClaudeProvider.value === 'mimo') {
         request.baseUrl = claudeMimoBaseUrl.value.trim()
+      }
+      if (selectedClaudeProvider.value === 'dashscope') {
+        request.baseUrl = selectedDashScopePlan.value.trim()
       }
     }
     if (platform === 'codex') {
@@ -257,6 +278,9 @@ const showApplyPreview = async (platform: AgentPlatform) => {
     }
     if (selectedClaudeProvider.value === 'mimo') {
       request.baseUrl = claudeMimoBaseUrl.value.trim()
+    }
+    if (selectedClaudeProvider.value === 'dashscope') {
+      request.baseUrl = selectedDashScopePlan.value.trim()
     }
   }
   if (platform === 'codex') {
@@ -328,6 +352,7 @@ export function useAgentConfig() {
     codexOpenAIKey,
     claudeMimoBaseUrl,
     selectedMimoPlan,
+    selectedDashScopePlan,
     agentLabels,
     claudeProviderLabels,
     codexProviderLabels,

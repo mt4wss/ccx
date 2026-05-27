@@ -11,6 +11,7 @@ const props = defineProps<{
   savedProviderKeys: Record<string, string>
   mimoBaseUrl: string
   selectedMimoPlan: string
+  selectedDashScopePlan: string
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ const emit = defineEmits<{
   'update:providerKeys': [value: Record<AgentProvider, string>]
   'update:mimoBaseUrl': [value: string]
   'update:selectedMimoPlan': [value: string]
+  'update:selectedDashScopePlan': [value: string]
 }>()
 
 const mimoPlanOptions = [
@@ -25,6 +27,11 @@ const mimoPlanOptions = [
   { label: '订阅套餐 - 中国', value: 'https://token-plan-cn.xiaomimimo.com/anthropic' },
   { label: '订阅套餐 - 新加坡', value: 'https://token-plan-sgp.xiaomimimo.com/anthropic' },
   { label: '订阅套餐 - 欧洲', value: 'https://token-plan-ams.xiaomimimo.com/anthropic' },
+]
+
+const dashScopePlanOptions = [
+  { label: '按量', value: 'https://dashscope.aliyuncs.com/apps/anthropic' },
+  { label: 'Coding Plan 订阅制', value: 'https://coding.dashscope.aliyuncs.com/apps/anthropic' },
 ]
 
 const onProviderChange = (e: Event) => {
@@ -44,14 +51,23 @@ const onMimoPlanChange = (e: Event) => {
   emit('update:mimoBaseUrl', planValue)
 }
 
+const onDashScopePlanChange = (e: Event) => {
+  const planValue = (e.target as HTMLSelectElement).value
+  emit('update:selectedDashScopePlan', planValue)
+}
+
 const keyPlaceholder = (provider: AgentProvider) => {
   if (provider === 'mimo' && props.selectedMimoPlan && props.savedProviderKeys[`claude:${provider}:${props.selectedMimoPlan}`]) {
+    return '已保存，留空则使用已保存的 key'
+  }
+  if (provider === 'dashscope' && props.selectedDashScopePlan && props.savedProviderKeys[`claude:${provider}:${props.selectedDashScopePlan}`]) {
     return '已保存，留空则使用已保存的 key'
   }
   if (props.savedProviderKeys[`claude:${provider}`]) {
     return '已保存，留空则使用已保存的 key'
   }
   if (provider === 'mimo') return '必填：MiMo API Key（tp-xxx 或账号 key）'
+  if (provider === 'dashscope') return '必填：DashScope API Key（sk-xxx 或 sk-sp-xxx）'
   return '必填：输入 API Key'
 }
 </script>
@@ -109,6 +125,23 @@ const keyPlaceholder = (provider: AgentProvider) => {
         <option
           v-for="opt in mimoPlanOptions"
           :key="opt.value || '__custom__'"
+          :value="opt.value"
+        >
+          {{ opt.label }}
+        </option>
+      </select>
+    </div>
+
+    <div v-if="selectedProvider === 'dashscope'" class="space-y-1.5">
+      <Label class="text-xs text-muted-foreground">DashScope 计费模式</Label>
+      <select
+        :value="selectedDashScopePlan"
+        class="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        @change="onDashScopePlanChange"
+      >
+        <option
+          v-for="opt in dashScopePlanOptions"
+          :key="opt.value"
           :value="opt.value"
         >
           {{ opt.label }}
