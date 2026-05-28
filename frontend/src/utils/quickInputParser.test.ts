@@ -619,4 +619,11 @@ sk-33333`
     expect(result.detectedApiKeys).toEqual(['sk-abc123'])
     expect(result.detectedBaseUrls).toEqual(['https://api.example.com'])
   })
+
+  it('应支持大小写协议的 URL 不被冒号分隔破坏', () => {
+    const input = 'url: HTTPS://codeapi.icu/ api_key:sk-11111'
+    const result = parseQuickInput(input)
+    expect(result.detectedBaseUrls).toEqual(['HTTPS://codeapi.icu'])
+    expect(result.detectedApiKeys).toEqual(['sk-11111'])
+  })
 })

@@ -185,7 +185,7 @@ const extractTokens = (input: string): string[] => {
   const COLON_PLACEHOLDER = '__URLCOLON__'
   const protectedInput = input
     .replace(/%20/g, ' ')
-    .replace(/https?:\/\/[^\s,;，；：="“”'‘’\n]+/g, m => m.replace(/:/g, COLON_PLACEHOLDER))
+    .replace(/https?:\/\/[^\s,;，；：="“”'‘’\n]+/gi, m => m.replace(/:/g, COLON_PLACEHOLDER))
 
   return protectedInput
     .split(/[\n\s,;，；：:="“”'‘’]+/)
