@@ -216,12 +216,9 @@ const openFileInEditor = async (filePath: string) => {
           >
             <option value="ccx">CCX 本地网关</option>
             <option value="deepseek">DeepSeek 直连</option>
-            <option value="mimo">MiMo 直连</option>
-            <option value="compshare">Compshare 直连</option>
             <option value="kimi">Kimi 直连</option>
             <option value="glm">GLM 直连</option>
             <option value="minimax">MiniMax 直连</option>
-            <option value="dashscope">DashScope 直连</option>
             <option value="opencode-zen">OpenCode Zen 直连</option>
             <option value="opencode-go">OpenCode Go 直连</option>
           </select>

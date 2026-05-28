@@ -154,10 +154,14 @@ const openCodeTargetBaseUrl = () => {
   switch (selectedOpenCodeProvider.value) {
     case 'ccx':
       return agentStatuses.value.opencode?.targetBaseUrl || t('agent.localGateway')
-    case 'openai':
-      return 'https://api.openai.com/v1'
-    case 'dashscope':
-      return 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    case 'deepseek':
+      return 'https://api.deepseek.com/v1'
+    case 'kimi':
+      return 'https://api.moonshot.cn/v1'
+    case 'glm':
+      return 'https://open.bigmodel.cn/api/paas/v4'
+    case 'minimax':
+      return 'https://api.minimaxi.com/v1'
     case 'opencode-zen':
       return 'https://opencode.ai/zen/v1'
     case 'opencode-go':
