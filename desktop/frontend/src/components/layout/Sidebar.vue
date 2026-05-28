@@ -110,27 +110,6 @@ const handleDaemonAction = async () => {
           </span>
         </div>
       </button>
-
-      <div class="mt-4 rounded-lg border border-white/[0.03] bg-white/[0.01] p-3 text-slate-300 text-xs">
-        <div class="flex items-center justify-between">
-          <span class="text-slate-400">{{ t('sidebar.language') }}</span>
-          <div class="flex gap-1">
-            <button
-              v-for="option in languageOptions"
-              :key="option.locale"
-              :class="[
-                'px-2 py-1 rounded border text-[11px] transition-colors',
-                locale === option.locale
-                  ? 'border-blue-500/20 bg-blue-500/10 text-blue-300'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.02]'
-              ]"
-              @click="setLanguage(option.locale)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </div>
-      </div>
     </nav>
 
     <!-- 底部常驻迷你服务守护面板 -->
@@ -185,6 +164,24 @@ const handleDaemonAction = async () => {
               <Power class="w-2.5 h-2.5" />
               <span>{{ autostartEnabled ? t('common.autoStartOn') : t('common.autoStartOff') }}</span>
             </button>
+          </div>
+          <div class="flex justify-between items-center">
+            <span>{{ t('sidebar.language') }}</span>
+            <div class="flex items-center gap-0.5 bg-slate-900/80 rounded border border-white/[0.02] p-0.5">
+              <button
+                v-for="option in languageOptions"
+                :key="option.locale"
+                @click="setLanguage(option.locale)"
+                :class="[
+                  'px-1.5 py-0.5 rounded transition-all duration-200 cursor-pointer',
+                  locale === option.locale
+                    ? 'bg-blue-500/15 text-blue-400'
+                    : 'text-slate-500 hover:text-slate-300'
+                ]"
+              >
+                {{ option.label }}
+              </button>
+            </div>
           </div>
           <div class="flex justify-between items-center">
             <span>{{ t('common.version') }}</span>
