@@ -18,8 +18,8 @@ const openDir = (path: string) => {
 </script>
 
 <template>
-  <Card>
-    <CardContent class="space-y-3 pt-6">
+  <Card class="py-3">
+    <CardContent class="space-y-3">
       <div v-for="item in [
         { label: t('details.binary'), value: status.binaryPath || t('details.binaryMissing'), action: status.binaryPath ? 'reveal' : null, actionPath: status.binaryPath },
         { label: t('details.dataDir'), value: status.dataDir || t('details.dataDirMissing'), action: status.dataDir ? 'open' : null, actionPath: status.dataDir },
