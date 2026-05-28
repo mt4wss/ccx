@@ -253,6 +253,7 @@ export type MessageKey =
   | 'sidebar.versionHintTray'
   | 'sidebar.updateAvailable'
   | 'sidebar.updateAvailableHint'
+  | 'sidebar.theme'
 
 export type Messages = Record<MessageKey, string>
 
@@ -503,6 +504,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'sidebar.versionHintTray': 'Check for updates from the tray menu',
     'sidebar.updateAvailable': 'New {version}',
     'sidebar.updateAvailableHint': 'Click to view release notes',
+    'sidebar.theme': 'Theme',
   },
   'zh-CN': {
     'common.gatewayLabel': 'CCX CORE',
@@ -750,5 +752,6 @@ export const messages: Record<SupportedLocale, Messages> = {
     'sidebar.versionHintTray': '通过托盘菜单检查更新',
     'sidebar.updateAvailable': '新版 {version}',
     'sidebar.updateAvailableHint': '点击查看发布说明',
+    'sidebar.theme': '主题',
   },
 }

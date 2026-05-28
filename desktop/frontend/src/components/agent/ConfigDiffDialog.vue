@@ -129,13 +129,13 @@ const processedFiles = computed(() => {
         @click.self="emit('cancel')"
       >
         <div
-          class="w-[min(720px,90vw)] max-h-[85vh] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f1421] shadow-2xl flex flex-col"
+          class="w-[min(720px,90vw)] max-h-[85vh] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl flex flex-col"
         >
           <!-- Header -->
-          <div class="border-b border-white/[0.05] px-6 py-4 shrink-0">
+          <div class="border-b border-border px-6 py-4 shrink-0">
             <div class="flex items-baseline justify-between">
-              <h2 class="text-lg font-semibold text-white">{{ title }}</h2>
-              <div class="text-xs text-white/40">{{ platformLabel }}</div>
+              <h2 class="text-lg font-semibold text-foreground">{{ title }}</h2>
+              <div class="text-xs text-muted-foreground">{{ platformLabel }}</div>
             </div>
           </div>
 
@@ -143,12 +143,12 @@ const processedFiles = computed(() => {
           <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
             <!-- Loading state -->
             <div v-if="loading" class="flex items-center justify-center py-12">
-              <div class="text-sm text-white/40">{{ t('agent.diffComputing') }}</div>
+              <div class="text-sm text-muted-foreground">{{ t('agent.diffComputing') }}</div>
             </div>
 
             <!-- No changes -->
             <div v-else-if="!result || result.files.length === 0" class="flex items-center justify-center py-12">
-              <div class="text-sm text-white/40">{{ t('agent.diffNoChanges') }}</div>
+              <div class="text-sm text-muted-foreground">{{ t('agent.diffNoChanges') }}</div>
             </div>
 
             <!-- Diff blocks -->
@@ -156,11 +156,11 @@ const processedFiles = computed(() => {
               <div
                 v-for="{ file, displayLines } in processedFiles"
                 :key="file.path"
-                class="rounded-lg border border-white/[0.06] overflow-hidden"
+                class="rounded-lg border border-border overflow-hidden"
               >
                 <!-- File header -->
-                <div class="flex items-center justify-between px-4 py-2 bg-white/[0.03] border-b border-white/[0.05]">
-                  <code class="text-xs text-white/70 break-all">{{ file.path }}</code>
+                <div class="flex items-center justify-between px-4 py-2 bg-secondary/50 border-b border-border">
+                  <code class="text-xs text-foreground break-all">{{ file.path }}</code>
                   <Badge :class="actionBadgeClass(file.action)" class="text-[10px] px-1.5 py-0">
                     {{ actionLabel(file.action) }}
                   </Badge>
@@ -179,14 +179,14 @@ const processedFiles = computed(() => {
                             'bg-red-500/[0.07]': item.line.type === 'removed',
                           }"
                         >
-                          <td class="w-8 text-right pr-2 py-0.5 select-none text-white/20 align-top">
+                          <td class="w-8 text-right pr-2 py-0.5 select-none text-muted/50 align-top">
                             {{ item.origIndex + 1 }}
                           </td>
                           <td class="w-4 text-center py-0.5 select-none align-top"
                             :class="{
                               'text-emerald-400': item.line.type === 'added',
                               'text-red-400': item.line.type === 'removed',
-                              'text-white/20': item.line.type === 'context',
+                              'text-muted/50': item.line.type === 'context',
                             }"
                           >
                             {{ item.line.type === 'added' ? '+' : item.line.type === 'removed' ? '-' : ' ' }}
@@ -195,7 +195,7 @@ const processedFiles = computed(() => {
                             :class="{
                               'text-emerald-300/80': item.line.type === 'added',
                               'text-red-300/80': item.line.type === 'removed',
-                              'text-white/30': item.line.type === 'context',
+                              'text-muted/60': item.line.type === 'context',
                             }"
                           >
                             {{ item.line.content || ' ' }}
@@ -206,7 +206,7 @@ const processedFiles = computed(() => {
                         <tr v-else-if="!isExpanded(item.id)" class="group">
                           <td colspan="3" class="py-1 px-4">
                             <button
-                              class="w-full flex items-center justify-center gap-1.5 py-1 rounded text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                              class="w-full flex items-center justify-center gap-1.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
                               @click="toggleCollapse(item.id)"
                             >
                               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -222,7 +222,7 @@ const processedFiles = computed(() => {
                           <tr class="group">
                             <td colspan="3" class="py-1 px-4">
                               <button
-                                class="w-full flex items-center justify-center gap-1.5 py-1 rounded text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                                class="w-full flex items-center justify-center gap-1.5 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
                                 @click="toggleCollapse(item.id)"
                               >
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -236,11 +236,11 @@ const processedFiles = computed(() => {
                             v-for="(hidden, hi) in item.lines"
                             :key="`${item.id}-${hi}`"
                           >
-                            <td class="w-8 text-right pr-2 py-0.5 select-none text-white/20 align-top">
+                            <td class="w-8 text-right pr-2 py-0.5 select-none text-muted/50 align-top">
                               {{ item.startOrigIndex + hi + 1 }}
                             </td>
-                            <td class="w-4 text-center py-0.5 select-none text-white/20 align-top"> </td>
-                            <td class="py-0.5 pr-4 whitespace-pre-wrap break-all text-white/30">
+                            <td class="w-4 text-center py-0.5 select-none text-muted/50 align-top"> </td>
+                            <td class="py-0.5 pr-4 whitespace-pre-wrap break-all text-muted/60">
                               {{ hidden.content || ' ' }}
                             </td>
                           </tr>
@@ -254,7 +254,7 @@ const processedFiles = computed(() => {
           </div>
 
           <!-- Footer -->
-          <div class="flex justify-end gap-2 border-t border-white/[0.05] px-6 py-4 shrink-0">
+          <div class="flex justify-end gap-2 border-t border-border px-6 py-4 shrink-0">
             <Button variant="ghost" size="sm" @click="emit('cancel')">
               {{ t('agent.diffCancel') }}
             </Button>

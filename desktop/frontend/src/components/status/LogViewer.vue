@@ -119,24 +119,24 @@ const clearLocalLogs = () => {
 </script>
 
 <template>
-  <div class="bg-slate-950 border border-slate-900 rounded-xl overflow-hidden flex flex-col h-[380px] shadow-[0_15px_50px_rgba(0,0,0,0.5)] select-text">
+  <div class="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[380px] shadow-lg select-text">
     <!-- 终端顶部控制栏 -->
-    <div class="h-11 bg-slate-900/60 border-b border-slate-900 px-4 flex items-center justify-between select-none shrink-0">
+    <div class="h-11 bg-secondary/60 border-b border-border px-4 flex items-center justify-between select-none shrink-0">
       <div class="flex items-center gap-2">
         <Terminal class="w-3.5 h-3.5 text-blue-400" />
-        <span class="text-xs font-bold text-slate-300 font-mono tracking-wider">GATEWAY_DAEMON_TERM</span>
+        <span class="text-xs font-bold text-foreground font-mono tracking-wider">GATEWAY_DAEMON_TERM</span>
       </div>
 
       <!-- 右侧控制按钮组 -->
       <div class="flex items-center gap-3">
         <!-- 搜索输入框 -->
         <div class="relative flex items-center">
-          <Search class="w-3 h-3 absolute left-2.5 text-slate-500" />
+          <Search class="w-3 h-3 absolute left-2.5 text-muted-foreground" />
           <input
             v-model="searchQuery"
             type="text"
             :placeholder="t('logs.searchPlaceholder')"
-            class="bg-slate-950/80 border border-slate-900 rounded-md pl-7 pr-2.5 py-1 text-[11px] font-mono text-slate-300 w-36 focus:w-48 focus:border-blue-500/30 focus:outline-none transition-all duration-300"
+            class="bg-background/80 border border-border rounded-md pl-7 pr-2.5 py-1 text-[11px] font-mono text-foreground w-36 focus:w-48 focus:border-primary/30 focus:outline-none transition-all duration-300"
           />
         </div>
 
@@ -146,8 +146,8 @@ const clearLocalLogs = () => {
           :class="[
             'p-1.5 rounded border transition-colors cursor-pointer',
             autoScroll
-              ? 'bg-blue-500/10 text-blue-400 border-blue-500/15'
-              : 'text-slate-500 border-transparent hover:text-slate-300 hover:bg-slate-900'
+              ? 'bg-primary/10 text-primary border-primary/15'
+              : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary'
           ]"
           :title="t('logs.autoScroll')"
         >
@@ -157,7 +157,7 @@ const clearLocalLogs = () => {
         <!-- 一键复制 -->
         <button
           @click="copyLogs"
-          class="p-1.5 rounded text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-900 cursor-pointer"
+          class="p-1.5 rounded text-muted-foreground border border-transparent hover:text-foreground hover:bg-secondary cursor-pointer"
                     :title="copySuccess ? t('logs.copied') : t('logs.copyAll')"
         >
           <Copy class="w-3.5 h-3.5" :class="copySuccess ? 'text-emerald-400' : ''" />
@@ -166,7 +166,7 @@ const clearLocalLogs = () => {
         <!-- 清空日志 -->
         <button
           @click="clearLocalLogs"
-          class="p-1.5 rounded text-slate-500 border border-transparent hover:text-rose-400 hover:bg-slate-900 cursor-pointer"
+          class="p-1.5 rounded text-muted-foreground border border-transparent hover:text-rose-400 hover:bg-secondary cursor-pointer"
           :title="t('logs.clear')"
         >
           <Trash2 class="w-3.5 h-3.5" />
@@ -177,14 +177,14 @@ const clearLocalLogs = () => {
     <!-- 终端命令行区 -->
     <div
       ref="terminalBody"
-      class="flex-1 p-4 overflow-y-auto font-mono text-xs leading-relaxed space-y-1 bg-[#04060c] scroll-smooth"
+      class="flex-1 p-4 overflow-y-auto font-mono text-xs leading-relaxed space-y-1 bg-background/80 scroll-smooth"
     >
-      <div v-if="parsedLogs.length === 0" class="text-slate-600 text-center py-10 italic">
+      <div v-if="parsedLogs.length === 0" class="text-muted text-center py-10 italic">
         {{ searchQuery ? t('logs.noSearchResults') : t('logs.empty') }}
       </div>
-      <div v-else v-for="item in parsedLogs" :key="item.id" class="whitespace-pre-wrap break-all flex items-start gap-2 hover:bg-white/[0.01] px-1 rounded">
+      <div v-else v-for="item in parsedLogs" :key="item.id" class="whitespace-pre-wrap break-all flex items-start gap-2 hover:bg-secondary/50 px-1 rounded">
         <!-- 1. 时间戳 (柔和灰色) -->
-        <span v-if="item.parsed.time" class="text-slate-600 select-none shrink-0">{{ item.parsed.time.split(' ')[1] }}</span>
+        <span v-if="item.parsed.time" class="text-muted select-none shrink-0">{{ item.parsed.time.split(' ')[1] }}</span>
 
         <!-- 2. 组件-操作 标签高亮 -->
         <span v-if="item.parsed.component" :class="[
@@ -194,14 +194,14 @@ const clearLocalLogs = () => {
           item.parsed.component === 'Scheduler' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/15' :
           item.parsed.component === 'Config' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/15' :
           item.parsed.component === 'Updater' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/15' :
-          'bg-slate-800 text-slate-300 border border-white/[0.03]'
+          'bg-secondary text-foreground border border-border'
         ]">
           {{ item.parsed.component }}<span v-if="item.parsed.action" class="opacity-60 text-[9px]">.{{ item.parsed.action }}</span>
         </span>
 
         <!-- 3. 日志正文内容根据状态渲染不同颜色 -->
         <span :class="[
-          'flex-1 font-sans text-slate-300 text-[12px]',
+          'flex-1 font-sans text-foreground text-[12px]',
           item.parsed.type === 'error' ? 'text-rose-400 font-medium' :
           item.parsed.type === 'warn' ? 'text-amber-300 font-medium' :
           item.parsed.type === 'success' ? 'text-emerald-400 font-medium' : ''
@@ -211,7 +211,7 @@ const clearLocalLogs = () => {
       </div>
 
       <!-- 闪烁的终端命令输入提示符，突显高科技质感 -->
-      <div class="flex items-center gap-1.5 pt-1.5 text-blue-500/75 select-none" v-if="status.running && !searchQuery">
+      <div class="flex items-center gap-1.5 pt-1.5 text-primary/75 select-none" v-if="status.running && !searchQuery">
         <span>$</span>
         <span class="w-1.5 h-3.5 bg-blue-500/80 animate-pulse inline-block"></span>
       </div>

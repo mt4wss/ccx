@@ -110,7 +110,7 @@ const keyPlaceholder = (provider: AgentProvider) => {
       <button
         v-if="providerConsoleLinks[selectedProvider]"
         type="button"
-        class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200"
+        class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
         @click="openProviderConsole(selectedProvider)"
       >
         {{ t('agent.openConsole') }}

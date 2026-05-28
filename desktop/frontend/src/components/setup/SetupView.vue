@@ -77,15 +77,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="fixed inset-0 flex flex-col items-center justify-center bg-[#060a13] text-slate-100 font-sans overflow-y-auto p-6" data-wails-drag>
+  <div class="fixed inset-0 flex flex-col items-center justify-center bg-background text-foreground font-sans overflow-y-auto p-6" data-wails-drag>
     <div class="w-full max-w-md">
-      <Card class="border-slate-900/60 bg-slate-950/40 backdrop-blur-md">
+      <Card class="border-border bg-card/60 backdrop-blur-md">
         <CardHeader class="pb-4 text-center">
           <div class="flex justify-center mb-4">
             <Logo :size="48" />
           </div>
           <CardTitle class="text-lg font-bold tracking-wide">{{ t('setup.title') }}</CardTitle>
-          <CardDescription class="text-slate-500 leading-relaxed">
+          <CardDescription class="text-muted-foreground leading-relaxed">
             {{ t('setup.description') }}
           </CardDescription>
         </CardHeader>
@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
                 type="button"
                 @click="handleRegenerate"
                 :disabled="setupSaving"
-                class="text-[10px] text-blue-400/70 hover:text-blue-400 flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer"
+                class="text-[10px] text-primary/70 hover:text-primary flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer"
                 :title="t('setup.regenerateTitle')"
               >
                 <Sparkles class="w-3 h-3" />
@@ -127,16 +127,16 @@ onBeforeUnmount(() => {
           </div>
 
           <!-- 数据目录路径 -->
-          <div v-if="envPath" class="flex items-start gap-2 rounded-lg border border-slate-800/50 bg-slate-900/30 px-3 py-2">
-            <FolderOpen class="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0" />
+          <div v-if="envPath" class="flex items-start gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2">
+            <FolderOpen class="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
             <div class="min-w-0 flex-1">
-              <p class="text-[10px] text-slate-500 mb-0.5">{{ t('setup.configPath') }}</p>
-              <p class="text-xs font-mono text-slate-400 break-all">{{ envPath }}</p>
+              <p class="text-[10px] text-muted-foreground mb-0.5">{{ t('setup.configPath') }}</p>
+              <p class="text-xs font-mono text-foreground break-all">{{ envPath }}</p>
             </div>
             <button
               type="button"
               @click="handleCopyPath"
-              class="text-slate-500 hover:text-slate-400 transition-colors shrink-0 mt-1 cursor-pointer"
+              class="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-1 cursor-pointer"
               :title="copiedTarget === 'path' ? t('setup.copied') : t('setup.copyPath')"
             >
               <Check v-if="copiedTarget === 'path'" class="w-3 h-3 text-emerald-400" />
@@ -152,7 +152,7 @@ onBeforeUnmount(() => {
           </Alert>
 
           <!-- 后续可修改提示 -->
-          <div class="flex items-start gap-2 text-[11px] text-slate-600">
+          <div class="flex items-start gap-2 text-[11px] text-muted-foreground">
             <Info class="w-3.5 h-3.5 shrink-0 mt-px" />
             <span>{{ t('setup.hint') }}</span>
           </div>

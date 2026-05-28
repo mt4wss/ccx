@@ -188,7 +188,7 @@ const openFileInEditor = async (filePath: string) => {
         <button
           v-if="selectedCodexProvider && selectedCodexProvider !== 'ccx' && providerConsoleLinks[selectedCodexProvider]"
           type="button"
-          class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200"
+          class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           @click="openProviderConsole(selectedCodexProvider)"
         >
           {{ t('agent.openConsole') }}
@@ -226,7 +226,7 @@ const openFileInEditor = async (filePath: string) => {
         <button
           v-if="selectedOpenCodeProvider && selectedOpenCodeProvider !== 'ccx' && providerConsoleLinks[selectedOpenCodeProvider]"
           type="button"
-          class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200"
+          class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           @click="openProviderConsole(selectedOpenCodeProvider)"
         >
           {{ t('agent.openConsole') }}
