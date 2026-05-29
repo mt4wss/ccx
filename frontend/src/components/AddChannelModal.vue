@@ -290,6 +290,28 @@
                     </v-btn>
                   </div>
 
+                  <div v-if="showCodexResponsesChannelPresets" class="d-flex align-center flex-wrap ga-2 mb-4">
+                    <div class="text-caption text-medium-emphasis">{{ t('addChannel.oneClickSetup') }}</div>
+                    <v-btn
+                      size="small"
+                      variant="tonal"
+                      color="secondary"
+                      prepend-icon="mdi-lightning-bolt"
+                      @click="applyCodexResponsesChannelPreset('mimo')"
+                    >
+                      MiMo
+                    </v-btn>
+                    <v-btn
+                      size="small"
+                      variant="tonal"
+                      color="secondary"
+                      prepend-icon="mdi-lightning-bolt"
+                      @click="applyCodexResponsesChannelPreset('deepseek')"
+                    >
+                      DeepSeek
+                    </v-btn>
+                  </div>
+
                   <!-- 现有映射列表 -->
                   <div v-if="Object.keys(form.modelMapping).length" class="mb-4">
                     <v-list density="compact" class="bg-transparent">
@@ -1565,7 +1587,8 @@ const supportsChatRoleNormalization = computed(() => {
 })
 
 const showModelMappingPresets = computed(() => {
-  return props.channelType === 'messages' && (form.serviceType === 'openai' || form.serviceType === 'responses')
+  if (props.channelType === 'responses' && form.serviceType === 'responses') return false
+  return (props.channelType === 'messages' || props.channelType === 'responses') && (form.serviceType === 'openai' || form.serviceType === 'responses')
 })
 const modelNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 
@@ -1665,6 +1688,7 @@ const claudeChannelPresets: Record<
     noVision: boolean
     noVisionModels: string[]
     visionFallbackModel: string
+    modelMapping?: Record<string, string>
   }
 > = {
   mimo: {
@@ -1674,7 +1698,12 @@ const claudeChannelPresets: Record<
     normalizeSystemRoleToTopLevel: false,
     noVision: false,
     noVisionModels: ['mimo-v2.5-pro'],
-    visionFallbackModel: 'mimo-v2.5'
+    visionFallbackModel: 'mimo-v2.5',
+    modelMapping: {
+      haiku: 'mimo-v2.5-pro',
+      opus: 'mimo-v2.5-pro',
+      sonnet: 'mimo-v2.5-pro'
+    }
   },
   deepseek: {
     passbackReasoningContent: true,
@@ -1683,7 +1712,12 @@ const claudeChannelPresets: Record<
     normalizeSystemRoleToTopLevel: false,
     noVision: true,
     noVisionModels: [],
-    visionFallbackModel: ''
+    visionFallbackModel: '',
+    modelMapping: {
+      haiku: 'deepseek-v4-flash',
+      opus: 'deepseek-v4-pro',
+      sonnet: 'deepseek-v4-pro'
+    }
   }
 }
 
@@ -1693,6 +1727,76 @@ const applyClaudeChannelPreset = (preset: keyof typeof claudeChannelPresets) => 
   form.passbackThinkingBlocks = presetConfig.passbackThinkingBlocks
   form.stripEmptyTextBlocks = presetConfig.stripEmptyTextBlocks
   form.normalizeSystemRoleToTopLevel = presetConfig.normalizeSystemRoleToTopLevel
+  form.noVision = presetConfig.noVision
+  form.noVisionModels = [...presetConfig.noVisionModels]
+  form.visionFallbackModel = presetConfig.visionFallbackModel
+  if (presetConfig.modelMapping) {
+    form.modelMapping = { ...presetConfig.modelMapping }
+  }
+}
+
+// Codex Responses 转 OpenAI 兼容上游的一键预设（MiMo / DeepSeek）
+const showCodexResponsesChannelPresets = computed(() => {
+  return props.channelType === 'responses' && form.serviceType === 'openai'
+})
+
+const codexResponsesChannelPresets: Record<
+  'mimo' | 'deepseek',
+  {
+    modelMapping: Record<string, string>
+    reasoningMapping: Record<string, 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'>
+    reasoningParamStyle: 'reasoning' | 'reasoning_effort' | 'thinking'
+    codexNativeToolPassthrough: boolean
+    codexToolCompat: boolean
+    stripCodexClientTools: boolean
+    normalizeNonstandardChatRoles: boolean
+    noVision: boolean
+    noVisionModels: string[]
+    visionFallbackModel: string
+  }
+> = {
+  mimo: {
+    modelMapping: {
+      'gpt-5': 'mimo-v2.5-pro'
+    },
+    reasoningMapping: {},
+    reasoningParamStyle: 'reasoning',
+    codexNativeToolPassthrough: false,
+    codexToolCompat: false,
+    stripCodexClientTools: false,
+    normalizeNonstandardChatRoles: false,
+    noVision: false,
+    noVisionModels: ['mimo-v2.5-pro'],
+    visionFallbackModel: 'mimo-v2.5'
+  },
+  deepseek: {
+    modelMapping: {
+      gpt: 'deepseek-v4-pro',
+      mini: 'deepseek-v4-flash'
+    },
+    reasoningMapping: {
+      gpt: 'max'
+    },
+    reasoningParamStyle: 'reasoning',
+    codexNativeToolPassthrough: true,
+    codexToolCompat: false,
+    stripCodexClientTools: false,
+    normalizeNonstandardChatRoles: true,
+    noVision: true,
+    noVisionModels: [],
+    visionFallbackModel: ''
+  }
+}
+
+const applyCodexResponsesChannelPreset = (preset: keyof typeof codexResponsesChannelPresets) => {
+  const presetConfig = codexResponsesChannelPresets[preset]
+  form.modelMapping = { ...presetConfig.modelMapping }
+  form.reasoningMapping = { ...presetConfig.reasoningMapping }
+  form.reasoningParamStyle = presetConfig.reasoningParamStyle
+  form.codexNativeToolPassthrough = presetConfig.codexNativeToolPassthrough
+  form.codexToolCompat = presetConfig.codexToolCompat
+  form.stripCodexClientTools = presetConfig.stripCodexClientTools
+  form.normalizeNonstandardChatRoles = presetConfig.normalizeNonstandardChatRoles
   form.noVision = presetConfig.noVision
   form.noVisionModels = [...presetConfig.noVisionModels]
   form.visionFallbackModel = presetConfig.visionFallbackModel
