@@ -67,6 +67,14 @@ export function GenerateProxyAccessKey(): $CancellablePromise<string> {
     return $Call.ByID(1874658839);
 }
 
+/**
+ * GetAdminAccessKey 返回管理 API 访问密钥。
+ * 优先使用 ADMIN_ACCESS_KEY，未设置时回退到 PROXY_ACCESS_KEY。
+ */
+export function GetAdminAccessKey(): $CancellablePromise<string> {
+    return $Call.ByID(2254986559);
+}
+
 export function GetAgentConfigStatus(platform: string): $CancellablePromise<configservice$0.AgentConfigStatus> {
     return $Call.ByID(3013260948, platform).then(($result: any) => {
         return $$createType4($result);
@@ -108,10 +116,6 @@ export function GetProviderPresets(target: string): $CancellablePromise<channelp
     return $Call.ByID(764436626, target).then(($result: any) => {
         return $$createType11($result);
     });
-}
-
-export function GetAdminAccessKey(): $CancellablePromise<string> {
-    return $Call.ByID(2254986559);
 }
 
 export function GetProxyAccessKey(): $CancellablePromise<string> {

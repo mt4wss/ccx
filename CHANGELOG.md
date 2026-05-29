@@ -1,3 +1,19 @@
+## [v2.8.17] - 2026-05-29
+
+### 新增
+
+- **新增 gpt-5.4-mini 到 codex responses 协议源模型列表** - 前端 codex responses 协议源模型列表新增 gpt-5.4-mini 模型。
+- **更新 Gemini 源模型列表** - 更新前端 Gemini 源模型列表配置。
+- **更新模型列表并同步前后端** - 更新模型列表并保持前后端配置同步。
+
+### 修复
+
+- **WebUI iframe 认证使用 ADMIN_ACCESS_KEY 而非 PROXY_ACCESS_KEY** - 修复桌面端 WebUI iframe 认证使用错误密钥的问题。
+
+### 其他
+
+- **简化 favicon，替换为极简 CX 描边图标** - 简化 favicon 设计，替换为极简 CX 描边图标。
+
 ## [v2.8.16] - 2026-05-29
 
 ### 新增
