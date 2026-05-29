@@ -37,18 +37,37 @@ func detectImageInBody(body []byte) bool {
 		return false
 	}
 
-	// Claude Messages / OpenAI Chat: messages[*].content[*].type == "image" | "image_url"
+	hasImageBlock := func(block gjson.Result) bool {
+		return block.Get("type").String() == "image" ||
+			block.Get("type").String() == "image_url" ||
+			block.Get("type").String() == "input_image"
+	}
+
+	hasImageInContent := func(content gjson.Result) bool {
+		if !content.IsArray() {
+			return false
+		}
+		for _, block := range content.Array() {
+			if hasImageBlock(block) {
+				return true
+			}
+			// Claude tool_result 等 content block 可继续嵌套一层 content 数组，图片可能出现在其中。
+			for _, nested := range block.Get("content").Array() {
+				if hasImageBlock(nested) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Claude Messages / OpenAI Chat: messages[*].content[*] 可能直接是图片，
+	// 也可能在 tool_result.content[*] 等嵌套 content 数组中包含图片。
 	messages := gjson.GetBytes(body, "messages")
 	if messages.Exists() && messages.IsArray() {
 		for _, msg := range messages.Array() {
-			content := msg.Get("content")
-			if content.IsArray() {
-				for _, block := range content.Array() {
-					t := block.Get("type").String()
-					if t == "image" || t == "image_url" {
-						return true
-					}
-				}
+			if hasImageInContent(msg.Get("content")) {
+				return true
 			}
 		}
 	}
@@ -57,18 +76,8 @@ func detectImageInBody(body []byte) bool {
 	input := gjson.GetBytes(body, "input")
 	if input.Exists() && input.IsArray() {
 		for _, item := range input.Array() {
-			t := item.Get("type").String()
-			if t == "input_image" {
+			if hasImageBlock(item) || hasImageInContent(item.Get("content")) {
 				return true
-			}
-			// 嵌套 content 数组（如 input_message.content）
-			itemContent := item.Get("content")
-			if itemContent.IsArray() {
-				for _, block := range itemContent.Array() {
-					if block.Get("type").String() == "input_image" {
-						return true
-					}
-				}
 			}
 		}
 	}
