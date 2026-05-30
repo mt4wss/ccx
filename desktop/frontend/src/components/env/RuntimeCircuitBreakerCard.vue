@@ -2,8 +2,6 @@
 import { onMounted, reactive, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Alert } from '@/components/ui/alert'
 import { Save, RefreshCw, Zap } from 'lucide-vue-next'
 import { useStatus } from '@/composables/useStatus'
@@ -19,11 +17,50 @@ const error = ref('')
 const success = ref('')
 let messageTimer: ReturnType<typeof setTimeout> | null = null
 
+const activePreset = ref('balanced')
 const form = reactive({
   windowSize: 10,
   failureThreshold: 0.5,
   consecutiveFailuresThreshold: 3,
 })
+
+const presets = [
+  { key: 'gentle', labelKey: 'env.runtimeCbPresetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5 },
+  { key: 'balanced', labelKey: 'env.runtimeCbPresetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3 },
+  { key: 'aggressive', labelKey: 'env.runtimeCbPresetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2 },
+  { key: 'custom', labelKey: 'env.runtimeCbPresetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3 },
+]
+
+const matchPreset = () => {
+  for (const p of presets) {
+    if (p.key === 'custom') continue
+    if (form.windowSize === p.windowSize && form.failureThreshold === p.failureThreshold && form.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold) {
+      activePreset.value = p.key
+      return
+    }
+  }
+  activePreset.value = 'custom'
+}
+
+const applyPreset = (preset: typeof presets[number]) => {
+  if (preset.key === 'custom') return
+  form.windowSize = preset.windowSize
+  form.failureThreshold = preset.failureThreshold
+  form.consecutiveFailuresThreshold = preset.consecutiveFailuresThreshold
+  activePreset.value = preset.key
+}
+
+const onSliderChange = (field: string, event: Event) => {
+  const val = Number((event.target as HTMLInputElement).value)
+  if (field === 'failureThreshold') {
+    form.failureThreshold = Math.round(val * 100) / 100
+  } else if (field === 'windowSize') {
+    form.windowSize = val
+  } else if (field === 'consecutiveFailuresThreshold') {
+    form.consecutiveFailuresThreshold = val
+  }
+  matchPreset()
+}
 
 const clearMessages = () => {
   error.value = ''
@@ -46,8 +83,6 @@ const showMessage = (msg: string, type: 'success' | 'error') => {
 
 const buildApiUrl = async (path: string): Promise<string | null> => {
   if (!status.value.url) return null
-  const adminKey = await GetAdminAccessKey()
-  if (!adminKey) return null
   return `${status.value.url}${path}`
 }
 
@@ -62,13 +97,12 @@ const fetchConfig = async () => {
     const resp = await fetch(url, {
       headers: { 'x-api-key': adminKey },
     })
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status}`)
-    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = await resp.json()
     form.windowSize = data.windowSize ?? 10
     form.failureThreshold = data.failureThreshold ?? 0.5
     form.consecutiveFailuresThreshold = data.consecutiveFailuresThreshold ?? 3
+    matchPreset()
   } catch (e) {
     showMessage(t('env.runtimeCbLoadFailed', { error: e instanceof Error ? e.message : String(e) }), 'error')
   } finally {
@@ -89,10 +123,7 @@ const saveConfig = async () => {
     const adminKey = await GetAdminAccessKey()
     const resp = await fetch(url, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': adminKey,
-      },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': adminKey },
       body: JSON.stringify({
         windowSize: form.windowSize,
         failureThreshold: form.failureThreshold,
@@ -112,9 +143,7 @@ const saveConfig = async () => {
 }
 
 onMounted(() => {
-  if (status.value.running) {
-    fetchConfig()
-  }
+  if (status.value.running) fetchConfig()
 })
 </script>
 
@@ -127,9 +156,7 @@ onMounted(() => {
             <Zap class="w-4 h-4" />
             {{ t('env.runtimeCbTitle') }}
           </CardTitle>
-          <p class="text-xs text-muted-foreground mt-1">
-            {{ t('env.runtimeCbDesc') }}
-          </p>
+          <p class="text-xs text-muted-foreground mt-1">{{ t('env.runtimeCbDesc') }}</p>
         </div>
         <div class="flex gap-2">
           <Button size="sm" variant="ghost" :disabled="loading || !status.running" @click="fetchConfig">
@@ -155,44 +182,112 @@ onMounted(() => {
     </CardHeader>
 
     <CardContent class="space-y-4">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="space-y-1.5">
-          <Label class="text-xs text-muted-foreground">{{ t('env.runtimeCbWindowSize') }}</Label>
-          <Input
-            v-model.number="form.windowSize"
-            type="number"
+      <!-- Preset buttons -->
+      <div class="flex gap-2">
+        <Button
+          v-for="p in presets"
+          :key="p.key"
+          size="sm"
+          :variant="activePreset === p.key ? 'default' : 'outline'"
+          :disabled="!status.running"
+          @click="applyPreset(p)"
+        >
+          {{ t(p.labelKey) }}
+        </Button>
+      </div>
+
+      <!-- Sliders -->
+      <div class="space-y-3">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbWindowSize') }}</span>
+            <span class="text-xs font-medium">{{ form.windowSize }}</span>
+          </div>
+          <input
+            type="range"
+            :value="form.windowSize"
             :min="3"
             :max="100"
+            step="1"
+            class="cb-slider w-full"
             :disabled="!status.running"
+            @input="onSliderChange('windowSize', $event)"
           />
-          <p class="text-xs text-muted-foreground">{{ t('env.runtimeCbWindowSizeDesc') }}</p>
+          <div class="flex justify-between text-xs text-muted-foreground"><span>3</span><span>100</span></div>
         </div>
 
-        <div class="space-y-1.5">
-          <Label class="text-xs text-muted-foreground">{{ t('env.runtimeCbFailureThreshold') }}</Label>
-          <Input
-            v-model.number="form.failureThreshold"
-            type="number"
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbFailureThreshold') }}</span>
+            <span class="text-xs font-medium">{{ form.failureThreshold.toFixed(2) }}</span>
+          </div>
+          <input
+            type="range"
+            :value="form.failureThreshold"
             :min="0.01"
             :max="1"
-            :step="0.01"
+            step="0.01"
+            class="cb-slider w-full"
             :disabled="!status.running"
+            @input="onSliderChange('failureThreshold', $event)"
           />
-          <p class="text-xs text-muted-foreground">{{ t('env.runtimeCbFailureThresholdDesc') }}</p>
+          <div class="flex justify-between text-xs text-muted-foreground"><span>0.01</span><span>1.00</span></div>
         </div>
 
-        <div class="space-y-1.5">
-          <Label class="text-xs text-muted-foreground">{{ t('env.runtimeCbConsecutiveFailures') }}</Label>
-          <Input
-            v-model.number="form.consecutiveFailuresThreshold"
-            type="number"
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbConsecutiveFailures') }}</span>
+            <span class="text-xs font-medium">{{ form.consecutiveFailuresThreshold }}</span>
+          </div>
+          <input
+            type="range"
+            :value="form.consecutiveFailuresThreshold"
             :min="1"
             :max="100"
+            step="1"
+            class="cb-slider w-full"
             :disabled="!status.running"
+            @input="onSliderChange('consecutiveFailuresThreshold', $event)"
           />
-          <p class="text-xs text-muted-foreground">{{ t('env.runtimeCbConsecutiveFailuresDesc') }}</p>
+          <div class="flex justify-between text-xs text-muted-foreground"><span>1</span><span>100</span></div>
         </div>
       </div>
     </CardContent>
   </Card>
 </template>
+
+<style scoped>
+.cb-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: hsl(var(--muted));
+  outline: none;
+  cursor: pointer;
+}
+.cb-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.cb-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.cb-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

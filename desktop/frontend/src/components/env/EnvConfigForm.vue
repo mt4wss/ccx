@@ -102,22 +102,6 @@ const envGroups = computed<EnvGroup[]>(() => [
       { key: 'CORS_ORIGIN', label: t('env.fieldCorsOrigin'), type: 'text' as const, defaultValue: '*', placeholder: '*' },
     ],
   },
-  {
-    title: t('env.groupCircuitBreaker'),
-    description: t('env.groupCircuitBreakerDesc'),
-    fields: [
-      { key: 'METRICS_WINDOW_SIZE', label: t('env.fieldMetricsWindowSize'), type: 'number' as const, defaultValue: '10', min: 3 },
-      { key: 'METRICS_FAILURE_THRESHOLD', label: t('env.fieldMetricsFailureThreshold'), type: 'number' as const, defaultValue: '0.5', min: 0, max: 1, step: '0.01' },
-    ],
-  },
-  {
-    title: t('env.groupMetricsPersistence'),
-    description: t('env.groupMetricsPersistenceDesc'),
-    fields: [
-      { key: 'METRICS_PERSISTENCE_ENABLED', label: t('env.fieldMetricsPersistenceEnabled'), type: 'select' as const, defaultValue: 'true', options: booleanOptions },
-      { key: 'METRICS_RETENTION_DAYS', label: t('env.fieldMetricsRetentionDays'), type: 'number' as const, defaultValue: '30', min: 3, max: 90 },
-    ],
-  },
 ])
 
 const supportedKeys = envGroups.value.flatMap((group) => group.fields.map((field) => field.key))

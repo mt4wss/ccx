@@ -314,6 +314,10 @@ export type MessageKey =
   | 'env.runtimeCbFailureThresholdDesc'
   | 'env.runtimeCbConsecutiveFailures'
   | 'env.runtimeCbConsecutiveFailuresDesc'
+  | 'env.runtimeCbPresetGentle'
+  | 'env.runtimeCbPresetBalanced'
+  | 'env.runtimeCbPresetAggressive'
+  | 'env.runtimeCbPresetCustom'
   | 'env.runtimeCbSaved'
   | 'env.runtimeCbSaveFailed'
   | 'env.runtimeCbLoadFailed'
@@ -673,6 +677,10 @@ export const messages: Record<SupportedLocale, Messages> = {
     'env.runtimeCbFailureThresholdDesc': 'Triggers circuit break when exceeded (0.01-1.0)',
     'env.runtimeCbConsecutiveFailures': 'Consecutive Failures Threshold',
     'env.runtimeCbConsecutiveFailuresDesc': 'Triggers circuit break on N consecutive retryable failures (1-100)',
+    'env.runtimeCbPresetGentle': 'Gentle',
+    'env.runtimeCbPresetBalanced': 'Balanced',
+    'env.runtimeCbPresetAggressive': 'Aggressive',
+    'env.runtimeCbPresetCustom': 'Custom',
     'env.runtimeCbSaved': 'Circuit breaker config saved. Changes take effect immediately.',
     'env.runtimeCbSaveFailed': 'Failed to save: {error}',
     'env.runtimeCbLoadFailed': 'Failed to load: {error}',
@@ -1029,6 +1037,10 @@ export const messages: Record<SupportedLocale, Messages> = {
     'env.runtimeCbFailureThresholdDesc': '超过此值触发熔断（0.01-1.0）',
     'env.runtimeCbConsecutiveFailures': '连续失败阈值',
     'env.runtimeCbConsecutiveFailuresDesc': '连续可重试失败次数达此值触发熔断（1-100）',
+    'env.runtimeCbPresetGentle': '温和',
+    'env.runtimeCbPresetBalanced': '均衡',
+    'env.runtimeCbPresetAggressive': '激进',
+    'env.runtimeCbPresetCustom': '自定义',
     'env.runtimeCbSaved': '熔断器配置已保存，修改立即生效',
     'env.runtimeCbSaveFailed': '保存失败：{error}',
     'env.runtimeCbLoadFailed': '加载失败：{error}',

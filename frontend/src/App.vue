@@ -416,7 +416,7 @@
     <UpdateDialog v-model="systemStore.updateDialogOpen" />
 
     <!-- 熔断器配置对话框 -->
-    <v-dialog v-model="circuitBreakerDialogOpen" max-width="480">
+    <v-dialog v-model="circuitBreakerDialogOpen" max-width="520">
       <v-card rounded="lg">
         <v-card-title class="d-flex align-center pa-4 pb-2">
           <v-icon start color="primary">mdi-tune</v-icon>
@@ -424,43 +424,80 @@
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-4">
-          <div class="mb-4">
-            <div class="text-caption text-medium-emphasis mb-3">
-              {{ t('dialog.circuitBreaker.description') }}
+          <div class="text-caption text-medium-emphasis mb-3">
+            {{ t('dialog.circuitBreaker.description') }}
+          </div>
+
+          <!-- 预设按钮 -->
+          <div class="d-flex ga-2 mb-5">
+            <v-btn
+              v-for="preset in cbPresets"
+              :key="preset.key"
+              :variant="activePreset === preset.key ? 'flat' : 'outlined'"
+              :color="activePreset === preset.key ? 'primary' : 'default'"
+              size="small"
+              @click="applyPreset(preset)"
+            >
+              {{ t(preset.labelKey) }}
+            </v-btn>
+          </div>
+
+          <!-- 滑块区域 -->
+          <div class="mb-2">
+            <div class="d-flex align-center mb-1">
+              <span class="text-caption text-medium-emphasis flex-grow-1">{{ t('dialog.circuitBreaker.windowSize') }}</span>
+              <span class="text-caption font-weight-bold">{{ cbForm.windowSize }}</span>
             </div>
-            <v-text-field
-              v-model.number="cbForm.windowSize"
-              :label="t('dialog.circuitBreaker.windowSize')"
-              type="number"
+            <input
+              type="range"
+              :value="cbForm.windowSize"
               :min="3"
               :max="100"
-              density="compact"
-              variant="outlined"
-              class="mb-3"
-              hide-details
+              step="1"
+              class="cb-slider w-100"
+              @input="onSliderChange('windowSize', $event)"
             />
-            <v-text-field
-              v-model.number="cbForm.failureThreshold"
-              :label="t('dialog.circuitBreaker.failureThreshold')"
-              type="number"
+            <div class="d-flex justify-space-between text-xs text-medium-emphasis">
+              <span>3</span><span>100</span>
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <div class="d-flex align-center mb-1">
+              <span class="text-caption text-medium-emphasis flex-grow-1">{{ t('dialog.circuitBreaker.failureThreshold') }}</span>
+              <span class="text-caption font-weight-bold">{{ cbForm.failureThreshold.toFixed(2) }}</span>
+            </div>
+            <input
+              type="range"
+              :value="cbForm.failureThreshold"
               :min="0.01"
               :max="1"
-              :step="0.01"
-              density="compact"
-              variant="outlined"
-              class="mb-3"
-              hide-details
+              step="0.01"
+              class="cb-slider w-100"
+              @input="onSliderChange('failureThreshold', $event)"
             />
-            <v-text-field
-              v-model.number="cbForm.consecutiveFailuresThreshold"
-              :label="t('dialog.circuitBreaker.consecutiveFailuresThreshold')"
-              type="number"
+            <div class="d-flex justify-space-between text-xs text-medium-emphasis">
+              <span>0.01</span><span>1.00</span>
+            </div>
+          </div>
+
+          <div class="mb-1">
+            <div class="d-flex align-center mb-1">
+              <span class="text-caption text-medium-emphasis flex-grow-1">{{ t('dialog.circuitBreaker.consecutiveFailuresThreshold') }}</span>
+              <span class="text-caption font-weight-bold">{{ cbForm.consecutiveFailuresThreshold }}</span>
+            </div>
+            <input
+              type="range"
+              :value="cbForm.consecutiveFailuresThreshold"
               :min="1"
               :max="100"
-              density="compact"
-              variant="outlined"
-              hide-details
+              step="1"
+              class="cb-slider w-100"
+              @input="onSliderChange('consecutiveFailuresThreshold', $event)"
             />
+            <div class="d-flex justify-space-between text-xs text-medium-emphasis">
+              <span>1</span><span>100</span>
+            </div>
           </div>
         </v-card-text>
         <v-divider />
@@ -1613,11 +1650,50 @@ const toggleStripBillingHeader = async () => {
 // 熔断器配置
 const circuitBreakerDialogOpen = ref(false)
 const cbSaving = ref(false)
+const activePreset = ref('balanced')
 const cbForm = reactive({
   windowSize: 10,
   failureThreshold: 0.5,
   consecutiveFailuresThreshold: 3,
 })
+
+const cbPresets = [
+  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5 },
+  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3 },
+  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2 },
+  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3 },
+]
+
+const matchPreset = () => {
+  for (const p of cbPresets) {
+    if (p.key === 'custom') continue
+    if (cbForm.windowSize === p.windowSize && cbForm.failureThreshold === p.failureThreshold && cbForm.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold) {
+      activePreset.value = p.key
+      return
+    }
+  }
+  activePreset.value = 'custom'
+}
+
+const applyPreset = (preset: typeof cbPresets[number]) => {
+  if (preset.key === 'custom') return
+  cbForm.windowSize = preset.windowSize
+  cbForm.failureThreshold = preset.failureThreshold
+  cbForm.consecutiveFailuresThreshold = preset.consecutiveFailuresThreshold
+  activePreset.value = preset.key
+}
+
+const onSliderChange = (field: string, event: Event) => {
+  const val = Number((event.target as HTMLInputElement).value)
+  if (field === 'failureThreshold') {
+    cbForm.failureThreshold = Math.round(val * 100) / 100
+  } else if (field === 'windowSize') {
+    cbForm.windowSize = val
+  } else if (field === 'consecutiveFailuresThreshold') {
+    cbForm.consecutiveFailuresThreshold = val
+  }
+  matchPreset()
+}
 
 const openCircuitBreakerDialog = async () => {
   try {
@@ -1625,6 +1701,7 @@ const openCircuitBreakerDialog = async () => {
     cbForm.windowSize = params.windowSize
     cbForm.failureThreshold = params.failureThreshold
     cbForm.consecutiveFailuresThreshold = params.consecutiveFailuresThreshold
+    matchPreset()
   } catch (e) {
     console.error('Failed to load circuit breaker config:', e)
   }
@@ -2003,6 +2080,37 @@ onUnmounted(() => {
    🎮 复古像素 (Retro Pixel) 主题样式系统
    Neo-Brutalism: 直角、粗黑边框、硬阴影、等宽字体
    ===================================================== */
+
+/* 熔断器滑块样式 */
+.cb-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(var(--v-theme-on-surface) / 12%);
+  outline: none;
+  cursor: pointer;
+}
+.cb-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-primary));
+  cursor: pointer;
+  border: 2px solid rgb(var(--v-theme-surface));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.cb-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-primary));
+  cursor: pointer;
+  border: 2px solid rgb(var(--v-theme-surface));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
 
 /* ----- 应用栏 - 复古像素风格 ----- */
 .app-header {

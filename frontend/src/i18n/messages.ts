@@ -425,6 +425,10 @@ export type MessageKey =
   | 'dialog.circuitBreaker.windowSize'
   | 'dialog.circuitBreaker.failureThreshold'
   | 'dialog.circuitBreaker.consecutiveFailuresThreshold'
+  | 'dialog.circuitBreaker.presetGentle'
+  | 'dialog.circuitBreaker.presetBalanced'
+  | 'dialog.circuitBreaker.presetAggressive'
+  | 'dialog.circuitBreaker.presetCustom'
   | 'update.title'
   | 'update.currentVersion'
   | 'update.latestVersion'
@@ -861,6 +865,10 @@ export const messages: Record<SupportedLocale, Record<MessageKey, string>> = {
     'dialog.circuitBreaker.windowSize': 'Sliding Window Size',
     'dialog.circuitBreaker.failureThreshold': 'Failure Rate Threshold',
     'dialog.circuitBreaker.consecutiveFailuresThreshold': 'Consecutive Failures Threshold',
+    'dialog.circuitBreaker.presetGentle': 'Gentle',
+    'dialog.circuitBreaker.presetBalanced': 'Balanced',
+    'dialog.circuitBreaker.presetAggressive': 'Aggressive',
+    'dialog.circuitBreaker.presetCustom': 'Custom',
     'update.title': 'System Update',
     'update.currentVersion': 'Current Version',
     'update.latestVersion': 'Latest Version',
@@ -1296,6 +1304,10 @@ export const messages: Record<SupportedLocale, Record<MessageKey, string>> = {
     'dialog.circuitBreaker.windowSize': 'Ukuran Sliding Window',
     'dialog.circuitBreaker.failureThreshold': 'Ambang Batas Gagal',
     'dialog.circuitBreaker.consecutiveFailuresThreshold': 'Ambang Batas Kegagalan Beruntun',
+    'dialog.circuitBreaker.presetGentle': 'Ringan',
+    'dialog.circuitBreaker.presetBalanced': 'Seimbang',
+    'dialog.circuitBreaker.presetAggressive': 'Agresif',
+    'dialog.circuitBreaker.presetCustom': 'Kustom',
     'update.title': 'Pembaruan Sistem',
     'update.currentVersion': 'Versi Saat Ini',
     'update.latestVersion': 'Versi Terbaru',
@@ -1731,6 +1743,10 @@ export const messages: Record<SupportedLocale, Record<MessageKey, string>> = {
     'dialog.circuitBreaker.windowSize': '滑动窗口大小',
     'dialog.circuitBreaker.failureThreshold': '失败率阈值',
     'dialog.circuitBreaker.consecutiveFailuresThreshold': '连续失败阈值',
+    'dialog.circuitBreaker.presetGentle': '温和',
+    'dialog.circuitBreaker.presetBalanced': '均衡',
+    'dialog.circuitBreaker.presetAggressive': '激进',
+    'dialog.circuitBreaker.presetCustom': '自定义',
     'update.title': '系统更新',
     'update.currentVersion': '当前版本',
     'update.latestVersion': '最新版本',
