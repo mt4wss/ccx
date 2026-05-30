@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### 新增
+
+- **桌面端 Codex Agent 配置双模式** - Codex 支持两种 CCX 模式：快捷模式（OpenAI provider + CCX 代理，不迁移会话、不支持插件）和插件模式（CCX 原生 provider + `requires_openai_auth = true`，支持插件但切换需会话迁移提示）。UI 下拉框拆分为两个选项，互切时显示会话迁移警告。
+- **Codex provider 块统一使用 `env_key`** - 将 `[model_providers.xxx]` 块中的 `temp_env_key` 统一替换为官方文档字段 `env_key`。
+- **桌面端 AgentCard 编辑器打开支持多编辑器选择** - 配置文件和认证文件的"用编辑器打开"按钮现在支持多编辑器场景，通过透明 select 覆盖层提供编辑器选择下拉。
+
 ## [v2.8.19] - 2026-05-30
 
 ### 修复

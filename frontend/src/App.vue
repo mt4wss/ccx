@@ -63,10 +63,10 @@
     <!-- 应用栏 - 毛玻璃效果 -->
     <v-app-bar elevation="0" :height="$vuetify.display.mobile ? 56 : 72" class="app-header">
       <template #prepend>
-        <a href="https://github.com/BenedictKing/ccx" target="_blank" rel="noopener noreferrer" class="app-logo d-flex align-center justify-center pa-0 overflow-hidden">
+        <div class="app-logo d-flex align-center justify-center pa-0 overflow-hidden">
           <!-- 显著放大 Logo 尺寸（手机端 32px，电脑端 44px）让流转动画和发光更清晰夺目 -->
           <Logo :size="$vuetify.display.mobile ? 32 : 44" />
-        </a>
+        </div>
       </template>
 
       <!-- 自定义标题容器 - 替代 v-app-bar-title -->
