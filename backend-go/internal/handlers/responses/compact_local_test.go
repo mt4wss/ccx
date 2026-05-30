@@ -68,6 +68,25 @@ func TestFormatItemsAsTranscript_ContentBlocks(t *testing.T) {
 	}
 }
 
+func TestFormatItemsAsTranscript_InputImage(t *testing.T) {
+	items := []types.ResponsesItem{
+		{Type: "message", Role: "user", Content: []interface{}{
+			map[string]interface{}{"type": "input_text", "text": "Describe this image"},
+			map[string]interface{}{"type": "input_image", "image_url": "data:image/png;base64,SGVsbG8gV29ybGQh..."},
+		}},
+	}
+	transcript := formatItemsAsTranscript(items)
+	if !strings.Contains(transcript, "[Image]") {
+		t.Fatalf("expected [Image] placeholder, got: %s", transcript)
+	}
+	if strings.Contains(transcript, "data:image") || strings.Contains(transcript, "base64") {
+		t.Fatalf("base64 data leaked into transcript: %s", transcript)
+	}
+	if !strings.Contains(transcript, "Describe this image") {
+		t.Fatalf("text content should be preserved: %s", transcript)
+	}
+}
+
 func TestTruncateTranscript(t *testing.T) {
 	long := strings.Repeat("a", localCompactMaxTranscriptRunes+1000)
 	result := truncateTranscript(long)
