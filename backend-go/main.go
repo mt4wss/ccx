@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -509,6 +510,23 @@ func main() {
 	responsesHandler := responses.Handler(envCfg, cfgManager, sessionManager, channelScheduler)
 	r.POST("/v1/responses", responsesHandler)
 	r.POST("/:routePrefix/v1/responses", responsesHandler)
+
+	// Responses WebSocket fallback: 返回 426 让 Codex 回退到 HTTP POST
+	// Codex 内置 openai provider 优先尝试 WebSocket，收到 426 后立即回退
+	r.GET("/v1/responses", func(c *gin.Context) {
+		if strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
+			c.Status(http.StatusUpgradeRequired) // 426
+		} else {
+			c.Status(http.StatusMethodNotAllowed) // 405
+		}
+	})
+	r.GET("/:routePrefix/v1/responses", func(c *gin.Context) {
+		if strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
+			c.Status(http.StatusUpgradeRequired)
+		} else {
+			c.Status(http.StatusMethodNotAllowed)
+		}
+	})
 
 	compactHandler := responses.CompactHandler(envCfg, cfgManager, sessionManager, channelScheduler)
 	r.POST("/v1/responses/compact", compactHandler)
