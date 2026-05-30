@@ -94,6 +94,7 @@ type CodexProxyState struct {
 	OriginalModelProvider *string `json:"originalModelProvider,omitempty"`
 	OriginalProviderBlock *string `json:"originalProviderBlock,omitempty"`
 	OriginalOpenAIAPIKey  *string `json:"originalOpenaiApiKey,omitempty"`
+	OriginalOpenAIBaseURL *string `json:"originalOpenaiBaseUrl,omitempty"`
 	InjectedProvider      string  `json:"injectedProvider,omitempty"`
 	InjectedBaseURL       string  `json:"injectedBaseUrl"`
 	InjectedAPIKey        string  `json:"injectedApiKey"`
@@ -334,20 +335,37 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 		return status, nil
 	}
 	text := string(content)
-	baseURL, _ := extractTomlStringField(extractCodexProviderBlock(text), "base_url")
+	ccxBlockBaseURL, _ := extractTomlStringField(extractCodexProviderBlock(text), "base_url")
 	modelProvider, _ := extractTopLevelTomlString(text, "model_provider")
-	status.CurrentBaseURL = baseURL
-	status.Provider = normalizeCodexProvider(modelProvider)
+	openaiBaseURL, _ := extractTopLevelTomlString(text, "openai_base_url")
+
+	// 兼容新旧两种 CCX proxy 格式
+	isNewStyleCCX := strings.EqualFold(modelProvider, "openai") && isLocalBaseURL(openaiBaseURL)
+	isOldStyleCCX := strings.EqualFold(modelProvider, ProviderCCX)
+
+	// 旧格式优先取 [model_providers.ccx].base_url，新格式取 openai_base_url
+	effectiveBaseURL := ccxBlockBaseURL
+	if effectiveBaseURL == "" {
+		effectiveBaseURL = openaiBaseURL
+	}
+
+	normalized := normalizeCodexProvider(modelProvider)
+	if isNewStyleCCX || isOldStyleCCX {
+		status.Provider = ProviderCCX
+	} else {
+		status.Provider = normalized
+	}
 	if status.Provider != ProviderCCX {
 		status.TargetProvider = status.Provider
 	}
-	if status.Provider == ProviderOpenAI {
-		// OpenAI 官方模式，不需要目标 URL
+	if normalized == ProviderOpenAI && !isNewStyleCCX {
+		// 真正的 OpenAI 官方模式，不需要目标 URL
 		status.TargetBaseURL = ""
 	}
-	status.MatchesCurrentPort = modelProvider == ProviderCCX && baseURL == target
-	status.Configured = status.MatchesCurrentPort || status.Provider == ProviderOpenAI || isCodexThirdPartyProvider(status.Provider)
-	status.NeedsUpdate = (modelProvider == ProviderCCX || isLocalBaseURL(baseURL)) && !status.MatchesCurrentPort
+	status.CurrentBaseURL = effectiveBaseURL
+	status.MatchesCurrentPort = (isNewStyleCCX || isOldStyleCCX) && effectiveBaseURL == target
+	status.Configured = status.MatchesCurrentPort || (normalized == ProviderOpenAI && !isNewStyleCCX) || isCodexThirdPartyProvider(normalized)
+	status.NeedsUpdate = (isOldStyleCCX || isLocalBaseURL(effectiveBaseURL)) && !status.MatchesCurrentPort
 	return status, nil
 }
 
@@ -466,6 +484,7 @@ func (s *Service) applyCodex(port int, accessKey string) error {
 	}
 	modelProvider, mpOK := extractTopLevelTomlString(configContent, "model_provider")
 	providerBlock, blockOK := extractNamedTomlBlock(configContent, "model_providers.ccx")
+	openaiBaseURL, obOK := extractTopLevelTomlString(configContent, "openai_base_url")
 	apiKey, keyOK := authData["OPENAI_API_KEY"].(string)
 	state := CodexProxyState{
 		Version:               stateVersion,
@@ -476,6 +495,7 @@ func (s *Service) applyCodex(port int, accessKey string) error {
 		OriginalModelProvider: optionalString(modelProvider, mpOK),
 		OriginalProviderBlock: optionalString(providerBlock, blockOK),
 		OriginalOpenAIAPIKey:  optionalString(apiKey, keyOK),
+		OriginalOpenAIBaseURL: optionalString(openaiBaseURL, obOK),
 		InjectedBaseURL:       codexBaseURL(port),
 		InjectedAPIKey:        accessKey,
 	}
@@ -487,8 +507,10 @@ func (s *Service) applyCodex(port int, accessKey string) error {
 	if err := writeJSONAtomic(s.codexStatePath(), state); err != nil {
 		return err
 	}
-	updated := upsertTopLevelTomlString(configContent, "model_provider", "ccx")
-	updated = upsertNamedTomlBlock(updated, "model_providers.ccx", codexProviderBlock(state.InjectedBaseURL))
+	// 使用官方推荐的 openai_base_url 模式替代自定义 [model_providers.ccx]
+	updated := upsertTopLevelTomlString(configContent, "model_provider", "openai")
+	updated = upsertTopLevelTomlString(updated, "openai_base_url", codexBaseURL(port))
+	updated = restoreNamedTomlBlock(updated, "model_providers.ccx", nil) // 清理旧格式
 	if err := writeTextAtomic(configPath, updated); err != nil {
 		return err
 	}
@@ -532,6 +554,7 @@ func (s *Service) applyCodexOpenAI(apiKey string) error {
 		return err
 	}
 	updated := upsertTopLevelTomlString(configContent, "model_provider", "openai")
+	updated = restoreTopLevelTomlString(updated, "openai_base_url", nil) // 清理 CCX proxy 残留
 	updated = restoreNamedTomlBlock(updated, "model_providers.ccx", nil)
 	// OpenAI 是内置 provider，不需要显式配置块
 	updated = restoreNamedTomlBlock(updated, "model_providers.openai", nil)
@@ -608,6 +631,7 @@ temp_env_key = "OPENAI_API_KEY"
 requires_openai_auth = false
 `, provider, provider, baseURL)
 	updated := upsertTopLevelTomlString(configContent, "model_provider", provider)
+	updated = restoreTopLevelTomlString(updated, "openai_base_url", nil) // 清理 CCX proxy 残留
 	updated = restoreNamedTomlBlock(updated, "model_providers.ccx", nil)
 	updated = restoreNamedTomlBlock(updated, "model_providers.openai", nil)
 	updated = upsertNamedTomlBlock(updated, "model_providers."+provider, block)
@@ -628,6 +652,7 @@ func (s *Service) restoreCodex() error {
 			return err
 		}
 		content = restoreTopLevelTomlString(content, "model_provider", state.OriginalModelProvider)
+		content = restoreTopLevelTomlString(content, "openai_base_url", state.OriginalOpenAIBaseURL)
 		content = restoreNamedTomlBlock(content, "model_providers.ccx", state.OriginalProviderBlock)
 		if state.InjectedProvider != "" && state.InjectedProvider != ProviderCCX && state.InjectedProvider != ProviderOpenAI {
 			content = restoreNamedTomlBlock(content, "model_providers."+state.InjectedProvider, nil)
@@ -1377,8 +1402,9 @@ func (s *Service) previewApplyCodex(port int, accessKey string) (ConfigDiffResul
 	}
 
 	targetURL := codexBaseURL(port)
-	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "ccx")
-	updatedConfig = upsertNamedTomlBlock(updatedConfig, "model_providers.ccx", codexProviderBlock(targetURL))
+	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "openai")
+	updatedConfig = upsertTopLevelTomlString(updatedConfig, "openai_base_url", targetURL)
+	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil) // 清理旧格式
 
 	oldKey, _ := authData["OPENAI_API_KEY"].(string)
 	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
@@ -1427,6 +1453,7 @@ func (s *Service) previewApplyCodexOpenAI(apiKey string) (ConfigDiffResult, erro
 	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
 	newKeyValues := map[string]string{"OPENAI_API_KEY": key}
 	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "openai")
+	updatedConfig = restoreTopLevelTomlString(updatedConfig, "openai_base_url", nil) // 清理 CCX proxy 残留
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil)
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.openai", nil)
 
@@ -1472,6 +1499,7 @@ requires_openai_auth = false
 `, provider, provider, baseURL)
 
 	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", provider)
+	updatedConfig = restoreTopLevelTomlString(updatedConfig, "openai_base_url", nil) // 清理 CCX proxy 残留
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil)
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.openai", nil)
 	updatedConfig = upsertNamedTomlBlock(updatedConfig, "model_providers."+provider, block)
@@ -1535,6 +1563,7 @@ func (s *Service) previewRestoreCodex() (ConfigDiffResult, error) {
 			return ConfigDiffResult{}, err
 		}
 		restoredContent := restoreTopLevelTomlString(content, "model_provider", state.OriginalModelProvider)
+		restoredContent = restoreTopLevelTomlString(restoredContent, "openai_base_url", state.OriginalOpenAIBaseURL)
 		restoredContent = restoreNamedTomlBlock(restoredContent, "model_providers.ccx", state.OriginalProviderBlock)
 		if state.InjectedProvider != "" && state.InjectedProvider != ProviderCCX && state.InjectedProvider != ProviderOpenAI {
 			restoredContent = restoreNamedTomlBlock(restoredContent, "model_providers."+state.InjectedProvider, nil)
@@ -1573,9 +1602,6 @@ func copyJSONMap(data map[string]any) map[string]any {
 	return result
 }
 
-
-
-
 func findJSONCStringValue(content string, key string) (string, bool) {
 	re := regexp.MustCompile(`(?m)^(\s*)` + `"` + regexp.QuoteMeta(key) + `"` + `\s*:\s*\"([^\"\\]*(?:\\.[^\"\\]*)*)\"`)
 	m := re.FindStringSubmatch(content)
@@ -1584,7 +1610,6 @@ func findJSONCStringValue(content string, key string) (string, bool) {
 	}
 	return m[2], true
 }
-
 
 func extractJSONObjectRange(content string, key string) (int, int, bool) {
 	re := regexp.MustCompile(`(?m)^(\s*)` + `"` + regexp.QuoteMeta(key) + `"` + `\s*:\s*\{`)

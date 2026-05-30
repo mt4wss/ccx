@@ -541,13 +541,16 @@ func TestApplyAndRestoreCodex(t *testing.T) {
 		t.Fatalf("Apply failed: %v", err)
 	}
 
-	// 验证 config.toml
+	// 验证 config.toml — 新格式 openai_base_url 模式
 	content, _ := os.ReadFile(configPath)
-	if !strings.Contains(string(content), `model_provider = "ccx"`) {
-		t.Errorf("config.toml should contain model_provider = ccx")
+	if !strings.Contains(string(content), `model_provider = "openai"`) {
+		t.Errorf("config.toml should contain model_provider = openai")
 	}
-	if !strings.Contains(string(content), `[model_providers.ccx]`) {
-		t.Errorf("config.toml should contain ccx provider block")
+	if !strings.Contains(string(content), `openai_base_url = "http://127.0.0.1:3688/v1"`) {
+		t.Errorf("config.toml should contain openai_base_url")
+	}
+	if strings.Contains(string(content), `[model_providers.ccx]`) {
+		t.Errorf("config.toml should NOT contain legacy [model_providers.ccx] block")
 	}
 
 	// 验证 auth.json
@@ -715,6 +718,178 @@ func TestApplyAndRestoreCodex_ThirdPartyCleanup(t *testing.T) {
 	s = string(content)
 	if strings.Contains(s, `[model_providers.dashscope]`) {
 		t.Error("config.toml should NOT contain dashscope provider block after restore")
+	}
+}
+
+// ── Codex openai_base_url 新格式测试 ──
+
+func TestGetStatusCodex_NewStyleCCXProxy(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Provider != ProviderCCX {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	}
+	if !status.Configured {
+		t.Error("Configured should be true for new-style CCX proxy")
+	}
+	if !status.MatchesCurrentPort {
+		t.Error("MatchesCurrentPort should be true when port matches")
+	}
+}
+
+func TestGetStatusCodex_NewStyleCCXProxy_WrongPort(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:9999/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Provider != ProviderCCX {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	}
+	if !status.NeedsUpdate {
+		t.Error("NeedsUpdate should be true when port mismatches")
+	}
+	if status.MatchesCurrentPort {
+		t.Error("MatchesCurrentPort should be false when port mismatches")
+	}
+}
+
+func TestGetStatusCodex_OpenAIDirect(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "sk-openai-key"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Provider != ProviderOpenAI {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderOpenAI)
+	}
+	if !status.Configured {
+		t.Error("Configured should be true for OpenAI direct")
+	}
+}
+
+func TestGetStatusCodex_LegacyCCX(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Provider != ProviderCCX {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	}
+	if !status.MatchesCurrentPort {
+		t.Error("MatchesCurrentPort should be true for legacy CCX with matching port")
+	}
+}
+
+func TestApplyCodexOpenAI_RemovesBaseURL(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	// 先写入一个含 openai_base_url 的 config
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "sk-openai-key"})
+
+	// 应用 OpenAI direct
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderOpenAI}, 0, "sk-openai-key")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if strings.Contains(s, "openai_base_url") {
+		t.Error("config.toml should NOT contain openai_base_url after switching to OpenAI direct")
+	}
+	if !strings.Contains(s, `model_provider = "openai"`) {
+		t.Error("config.toml should contain model_provider = openai")
+	}
+}
+
+func TestApplyCodex_MigratesFromLegacyCCX(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	// 写入旧格式 ccx 配置
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:9999/v1"
+wire_api = "responses"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "old-key"})
+
+	// 应用新格式
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex}, 3688, "new-key")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if !strings.Contains(s, `model_provider = "openai"`) {
+		t.Error("config.toml should contain model_provider = openai after migration")
+	}
+	if !strings.Contains(s, `openai_base_url = "http://127.0.0.1:3688/v1"`) {
+		t.Error("config.toml should contain openai_base_url with correct port")
+	}
+	if strings.Contains(s, `[model_providers.ccx]`) {
+		t.Error("config.toml should NOT contain legacy [model_providers.ccx] block after migration")
 	}
 }
 
