@@ -239,6 +239,11 @@ export type MessageKey =
   | 'agent.diffExpandContext'
   | 'agent.diffCollapseContext'
   | 'agent.diffCancel'
+  | 'agent.provider.ccxOpenAI'
+  | 'agent.provider.ccxNative'
+  | 'agent.ccxQuickMode'
+  | 'agent.ccxPluginMode'
+  | 'agent.sessionMigrationWarning'
   | 'agent.provider.localGateway'
   | 'agent.provider.deepseekDirect'
   | 'agent.provider.mimoDirect'
@@ -600,6 +605,11 @@ export const messages: Record<SupportedLocale, Messages> = {
     'agent.diffExpandContext': 'Expand {count} unchanged lines',
     'agent.diffCollapseContext': 'Collapse {count} lines',
     'agent.diffCancel': 'Cancel',
+    'agent.sessionMigrationWarning': 'Switching provider mode will make existing sessions invisible in Codex. Sessions are not deleted — switch back to the previous mode to access them.',
+    'agent.provider.ccxOpenAI': 'CCX (Quick mode)',
+    'agent.provider.ccxNative': 'CCX (Plugin mode)',
+    'agent.ccxQuickMode': 'Quick mode (via OpenAI)',
+    'agent.ccxPluginMode': 'Plugin mode (CCX native)',
     'agent.provider.localGateway': 'CCX local gateway',
     'agent.provider.deepseekDirect': 'DeepSeek direct',
     'agent.provider.mimoDirect': 'MiMo direct',
@@ -958,6 +968,11 @@ export const messages: Record<SupportedLocale, Messages> = {
     'agent.diffExpandContext': '展开 {count} 行未变更内容',
     'agent.diffCollapseContext': '收起 {count} 行',
     'agent.diffCancel': '取消',
+    'agent.provider.ccxOpenAI': 'CCX (快捷模式)',
+    'agent.provider.ccxNative': 'CCX (插件模式)',
+    'agent.ccxQuickMode': '快捷模式 (OpenAI)',
+    'agent.ccxPluginMode': '插件模式 (原生)',
+    'agent.sessionMigrationWarning': '切换 provider 模式后，Codex 中已有的会话将不可见。会话不会被删除 — 切回之前的模式即可访问。',
     'agent.provider.localGateway': 'CCX 本地网关',
     'agent.provider.deepseekDirect': 'DeepSeek 直连',
     'agent.provider.mimoDirect': 'MiMo 直连',

@@ -739,8 +739,8 @@ openai_base_url = "http://127.0.0.1:3688/v1"
 	if err != nil {
 		t.Fatalf("GetStatus failed: %v", err)
 	}
-	if status.Provider != ProviderCCX {
-		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	if status.Provider != ProviderCCXOpenAI {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCXOpenAI)
 	}
 	if !status.Configured {
 		t.Error("Configured should be true for new-style CCX proxy")
@@ -766,8 +766,8 @@ openai_base_url = "http://127.0.0.1:9999/v1"
 	if err != nil {
 		t.Fatalf("GetStatus failed: %v", err)
 	}
-	if status.Provider != ProviderCCX {
-		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	if status.Provider != ProviderCCXOpenAI {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCXOpenAI)
 	}
 	if !status.NeedsUpdate {
 		t.Error("NeedsUpdate should be true when port mismatches")
@@ -820,8 +820,8 @@ wire_api = "responses"
 	if err != nil {
 		t.Fatalf("GetStatus failed: %v", err)
 	}
-	if status.Provider != ProviderCCX {
-		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	if status.Provider != ProviderCCXOpenAI {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCXOpenAI)
 	}
 	if !status.MatchesCurrentPort {
 		t.Error("MatchesCurrentPort should be true for legacy CCX with matching port")
@@ -894,6 +894,175 @@ wire_api = "responses"
 }
 
 // ── helpers ──
+
+// ── CCX 原生 provider 模式测试 ──
+
+func TestGetStatusCodex_NativeCCX(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = true
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "chatgpt"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.Provider != ProviderCCX {
+		t.Errorf("Provider = %q, want %q", status.Provider, ProviderCCX)
+	}
+	if !status.Configured {
+		t.Error("Configured should be true for native CCX provider")
+	}
+	if !status.MatchesCurrentPort {
+		t.Error("MatchesCurrentPort should be true when port matches")
+	}
+}
+
+func TestApplyCodexNative_CreatesProviderBlock(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderCCX}, 3688, "test-key")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if !strings.Contains(s, `model_provider = "ccx"`) {
+		t.Error("config.toml should contain model_provider = ccx")
+	}
+	if !strings.Contains(s, `[model_providers.ccx]`) {
+		t.Error("config.toml should contain [model_providers.ccx] block")
+	}
+	if !strings.Contains(s, `requires_openai_auth = true`) {
+		t.Error("config.toml should contain requires_openai_auth = true")
+	}
+	if !strings.Contains(s, `env_key = "OPENAI_API_KEY"`) {
+		t.Error("config.toml should contain env_key = OPENAI_API_KEY")
+	}
+	if strings.Contains(s, "openai_base_url") {
+		t.Error("config.toml should NOT contain openai_base_url for native CCX mode")
+	}
+	if strings.Contains(s, "temp_env_key") {
+		t.Error("config.toml should NOT contain temp_env_key (should use env_key)")
+	}
+
+	authData, _, _ := readJSONMap(authPath)
+	if authData["OPENAI_API_KEY"] != "test-key" {
+		t.Error("auth.json OPENAI_API_KEY should be set")
+	}
+}
+
+func TestApplyCodexNative_PreservesAuthMode(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "old-key", "auth_mode": "chatgpt"})
+
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderCCX}, 3688, "new-key")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	authData, _, _ := readJSONMap(authPath)
+	if authData["OPENAI_API_KEY"] != "new-key" {
+		t.Error("auth.json OPENAI_API_KEY should be updated")
+	}
+	if authData["auth_mode"] != "chatgpt" {
+		t.Errorf("auth.json auth_mode should be preserved, got %v", authData["auth_mode"])
+	}
+}
+
+func TestApplyCodexNative_MigratesFromOpenAIMode(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "ccx-key"})
+
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderCCX}, 3688, "ccx-key")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if !strings.Contains(s, `model_provider = "ccx"`) {
+		t.Error("config.toml should contain model_provider = ccx after migration")
+	}
+	if strings.Contains(s, "openai_base_url") {
+		t.Error("config.toml should NOT contain openai_base_url after migration to native")
+	}
+	if !strings.Contains(s, `requires_openai_auth = true`) {
+		t.Error("config.toml should contain requires_openai_auth = true after migration")
+	}
+}
+
+func TestApplyCodex_ThirdPartyUsesEnvKey(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderDashScope, APIKey: "dashscope-key"}, 0, "")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if strings.Contains(s, "temp_env_key") {
+		t.Error("config.toml should NOT contain temp_env_key (should use env_key)")
+	}
+	if !strings.Contains(s, `env_key = "OPENAI_API_KEY"`) {
+		t.Error("config.toml should contain env_key = OPENAI_API_KEY")
+	}
+	if strings.Contains(s, "requires_openai_auth = true") {
+		t.Error("third-party provider should NOT have requires_openai_auth = true")
+	}
+}
+
+func TestPreviewApplyCodexNative(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "old-key"})
+
+	result, err := svc.PreviewApply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderCCX}, 3688, "new-key")
+	if err != nil {
+		t.Fatalf("PreviewApply failed: %v", err)
+	}
+	if len(result.Files) == 0 {
+		t.Fatal("PreviewApply should return file diffs")
+	}
+
+	content, _ := os.ReadFile(configPath)
+	if strings.Contains(string(content), `[model_providers.ccx]`) {
+		t.Error("PreviewApply should NOT write to disk")
+	}
+}
 
 func writeJSON(path string, data any) {
 	b, _ := json.MarshalIndent(data, "", "  ")

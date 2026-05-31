@@ -27,6 +27,7 @@ const (
 	ProviderOpenCodeGo  = "opencode-go"
 	ProviderCustom      = "custom"
 	ProviderOpenAI      = "openai"
+	ProviderCCXOpenAI   = "ccx-openai"
 
 	deepSeekClaudeBaseURL            = "https://api.deepseek.com/anthropic"
 	defaultMiMoBaseURL               = "https://api.xiaomimimo.com/anthropic"
@@ -178,6 +179,9 @@ func (s *Service) Apply(req ApplyAgentConfigRequest, port int, accessKey string)
 		}
 		if accessKey == "" {
 			return fmt.Errorf("PROXY_ACCESS_KEY 为空")
+		}
+		if provider == ProviderCCX {
+			return s.applyCodexNative(port, accessKey)
 		}
 		return s.applyCodex(port, accessKey)
 	case PlatformOpenCode:
@@ -343,6 +347,15 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 	isNewStyleCCX := strings.EqualFold(modelProvider, "openai") && isLocalBaseURL(openaiBaseURL)
 	isOldStyleCCX := strings.EqualFold(modelProvider, ProviderCCX)
 
+	// CCX 原生 provider 模式：model_provider = "ccx" + [model_providers.ccx] 块含 requires_openai_auth = true
+	isNativeCCX := false
+	if isOldStyleCCX {
+		ccxBlock, hasBlock := extractNamedTomlBlock(text, "model_providers.ccx")
+		if hasBlock && strings.Contains(ccxBlock, "requires_openai_auth = true") {
+			isNativeCCX = true
+		}
+	}
+
 	// 旧格式优先取 [model_providers.ccx].base_url，新格式取 openai_base_url
 	effectiveBaseURL := ccxBlockBaseURL
 	if effectiveBaseURL == "" {
@@ -350,12 +363,14 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 	}
 
 	normalized := normalizeCodexProvider(modelProvider)
-	if isNewStyleCCX || isOldStyleCCX {
-		status.Provider = ProviderCCX
+	if isNativeCCX {
+		status.Provider = ProviderCCX // "ccx" 插件模式
+	} else if isNewStyleCCX || isOldStyleCCX {
+		status.Provider = ProviderCCXOpenAI // "ccx-openai" 快捷模式
 	} else {
 		status.Provider = normalized
 	}
-	if status.Provider != ProviderCCX {
+	if status.Provider != ProviderCCX && status.Provider != ProviderCCXOpenAI {
 		status.TargetProvider = status.Provider
 	}
 	if normalized == ProviderOpenAI && !isNewStyleCCX {
@@ -627,7 +642,7 @@ func (s *Service) applyCodexThirdParty(provider, baseURL, apiKey string) error {
 name = %q
 base_url = %q
 wire_api = "responses"
-temp_env_key = "OPENAI_API_KEY"
+env_key = "OPENAI_API_KEY"
 requires_openai_auth = false
 `, provider, provider, baseURL)
 	updated := upsertTopLevelTomlString(configContent, "model_provider", provider)
@@ -641,6 +656,62 @@ requires_openai_auth = false
 	authData["OPENAI_API_KEY"] = key
 	return writeJSONAtomic(authPath, authData)
 }
+func (s *Service) applyCodexNative(port int, accessKey string) error {
+	configPath := s.codexConfigPath()
+	authPath := s.codexAuthPath()
+	configContent, configExisted, err := readTextFile(configPath)
+	if err != nil {
+		return err
+	}
+	authData, authExisted, err := readJSONMap(authPath)
+	if err != nil {
+		return err
+	}
+	modelProvider, mpOK := extractTopLevelTomlString(configContent, "model_provider")
+	providerBlock, blockOK := extractNamedTomlBlock(configContent, "model_providers.ccx")
+	openaiBaseURL, obOK := extractTopLevelTomlString(configContent, "openai_base_url")
+	apiKey, keyOK := authData["OPENAI_API_KEY"].(string)
+	state := CodexProxyState{
+		Version:               stateVersion,
+		ConfigPath:            configPath,
+		AuthPath:              authPath,
+		ConfigFileExisted:     configExisted,
+		AuthFileExisted:       authExisted,
+		OriginalModelProvider: optionalString(modelProvider, mpOK),
+		OriginalProviderBlock: optionalString(providerBlock, blockOK),
+		OriginalOpenAIAPIKey:  optionalString(apiKey, keyOK),
+		OriginalOpenAIBaseURL: optionalString(openaiBaseURL, obOK),
+		InjectedProvider:      ProviderCCX,
+		InjectedBaseURL:       codexBaseURL(port),
+		InjectedAPIKey:        accessKey,
+	}
+	if existing, ok := s.readCodexState(); ok {
+		state = existing
+		state.InjectedProvider = ProviderCCX
+		state.InjectedBaseURL = codexBaseURL(port)
+		state.InjectedAPIKey = accessKey
+	}
+	if err := writeJSONAtomic(s.codexStatePath(), state); err != nil {
+		return err
+	}
+	block := fmt.Sprintf(`[model_providers.ccx]
+name = "CCX Proxy"
+base_url = %q
+wire_api = "responses"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = true
+`, codexBaseURL(port))
+	updated := upsertTopLevelTomlString(configContent, "model_provider", "ccx")
+	updated = restoreTopLevelTomlString(updated, "openai_base_url", nil)
+	updated = restoreNamedTomlBlock(updated, "model_providers.ccx", nil)
+	updated = upsertNamedTomlBlock(updated, "model_providers.ccx", block)
+	if err := writeTextAtomic(configPath, updated); err != nil {
+		return err
+	}
+	authData["OPENAI_API_KEY"] = accessKey
+	return writeJSONAtomic(authPath, authData)
+}
+
 func (s *Service) restoreCodex() error {
 	var state CodexProxyState
 	if err := readJSONFile(s.codexStatePath(), &state); err != nil {
@@ -888,6 +959,8 @@ func normalizeCodexProvider(provider string) string {
 		return ProviderOpenAI
 	case ProviderCCX:
 		return ProviderCCX
+	case ProviderCCXOpenAI:
+		return ProviderCCXOpenAI
 	case ProviderDashScope:
 		return ProviderDashScope
 	case ProviderOpenCodeZen:
@@ -1040,7 +1113,7 @@ func codexProviderBlock(baseURL string) string {
 name = "CCX Proxy"
 base_url = %q
 wire_api = "responses"
-temp_env_key = "OPENAI_API_KEY"
+env_key = "OPENAI_API_KEY"
 requires_openai_auth = false
 `, baseURL)
 }
@@ -1317,6 +1390,9 @@ func (s *Service) PreviewApply(req ApplyAgentConfigRequest, port int, accessKey 
 		if responsesURL, ok := codexResponsesBaseURL(provider); ok {
 			return s.previewApplyCodexThirdParty(provider, responsesURL, req.APIKey)
 		}
+		if provider == ProviderCCX {
+			return s.previewApplyCodexNative(port, accessKey)
+		}
 		return s.previewApplyCodex(port, accessKey)
 	case PlatformOpenCode:
 		return s.previewApplyOpenCode(req, port, accessKey)
@@ -1494,7 +1570,7 @@ func (s *Service) previewApplyCodexThirdParty(provider, baseURL, apiKey string) 
 name = %q
 base_url = %q
 wire_api = "responses"
-temp_env_key = "OPENAI_API_KEY"
+env_key = "OPENAI_API_KEY"
 requires_openai_auth = false
 `, provider, provider, baseURL)
 
@@ -1506,6 +1582,44 @@ requires_openai_auth = false
 
 	newAuthData := copyJSONMap(authData)
 	newAuthData["OPENAI_API_KEY"] = key
+
+	return ConfigDiffResult{Files: []FileDiff{
+		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
+	}}, nil
+}
+
+func (s *Service) previewApplyCodexNative(port int, accessKey string) (ConfigDiffResult, error) {
+	configPath := s.codexConfigPath()
+	authPath := s.codexAuthPath()
+	configContent, _, err := readTextFile(configPath)
+	if err != nil {
+		return ConfigDiffResult{}, err
+	}
+	authData, _, err := readJSONMap(authPath)
+	if err != nil {
+		return ConfigDiffResult{}, err
+	}
+
+	block := fmt.Sprintf(`[model_providers.ccx]
+name = "CCX Proxy"
+base_url = %q
+wire_api = "responses"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = true
+`, codexBaseURL(port))
+
+	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "ccx")
+	updatedConfig = restoreTopLevelTomlString(updatedConfig, "openai_base_url", nil)
+	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil)
+	updatedConfig = upsertNamedTomlBlock(updatedConfig, "model_providers.ccx", block)
+
+	oldKey, _ := authData["OPENAI_API_KEY"].(string)
+	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
+	newKeyValues := map[string]string{"OPENAI_API_KEY": accessKey}
+
+	newAuthData := copyJSONMap(authData)
+	newAuthData["OPENAI_API_KEY"] = accessKey
 
 	return ConfigDiffResult{Files: []FileDiff{
 		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),

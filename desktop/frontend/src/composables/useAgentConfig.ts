@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { AgentPlatform, AgentProvider, AgentConfigStatus, ApplyAgentConfigRequest, ConfigDiffResult } from '@/types'
 import { useLanguage } from '@/composables/useLanguage'
 import {
@@ -20,6 +20,7 @@ const agentLabels: Record<AgentPlatform, string> = {
 
 const claudeProviderLabels: Record<AgentProvider | 'custom', string> = {
   ccx: 'CCX',
+  'ccx-openai': 'CCX (OpenAI)',
   deepseek: 'DeepSeek',
   mimo: 'MiMo',
   compshare: 'Compshare',
@@ -33,8 +34,9 @@ const claudeProviderLabels: Record<AgentProvider | 'custom', string> = {
   custom: t('agent.custom'),
 }
 
-const codexProviderLabels: Record<AgentProvider | 'custom', string> = {
-  ccx: t('agent.localGateway'),
+const codexProviderLabels = computed<Record<AgentProvider | 'custom', string>>(() => ({
+  ccx: t('agent.ccxPluginMode'),
+  'ccx-openai': t('agent.ccxQuickMode'),
   openai: 'OpenAI',
   deepseek: 'DeepSeek',
   mimo: 'MiMo',
@@ -46,7 +48,7 @@ const codexProviderLabels: Record<AgentProvider | 'custom', string> = {
   'opencode-zen': 'OpenCode Zen',
   'opencode-go': 'OpenCode Go',
   custom: t('agent.custom'),
-}
+}))
 
 const agentPlatforms: AgentPlatform[] = ['claude', 'codex', 'opencode']
 
@@ -60,6 +62,7 @@ const configLoading = ref(false)
 const selectedClaudeProvider = ref<AgentProvider>('ccx')
 const claudeProviderKeys = ref<Record<AgentProvider, string>>({
   ccx: '',
+  'ccx-openai': '',
   deepseek: '',
   mimo: '',
   compshare: '',
@@ -77,7 +80,7 @@ const openCodeOpenAIKey = ref('')
 const claudeMimoBaseUrl = ref('https://api.xiaomimimo.com/anthropic')
 const selectedMimoPlan = ref('https://api.xiaomimimo.com/anthropic')
 const selectedDashScopePlan = ref('https://dashscope.aliyuncs.com/apps/anthropic')
-const selectedCodexProvider = ref<AgentProvider>('ccx')
+const selectedCodexProvider = ref<AgentProvider>('ccx-openai')
 const selectedOpenCodeProvider = ref<AgentProvider>('ccx')
 
 // Diff preview dialog state
@@ -86,6 +89,7 @@ const diffResult = ref<ConfigDiffResult | null>(null)
 const diffMode = ref<'apply' | 'restore'>('apply')
 const diffLoading = ref(false)
 const diffPendingPlatform = ref<AgentPlatform>('claude')
+const diffWarning = ref<string | undefined>(undefined)
 
 const isClaudeProvider = (value?: string): value is AgentProvider => {
   return value === 'ccx' || value === 'deepseek' || value === 'mimo' || value === 'compshare' || value === 'kimi' || value === 'glm' || value === 'minimax' || value === 'dashscope' || value === 'opencode-zen' || value === 'opencode-go'
@@ -98,12 +102,12 @@ const claudeProviderLabel = (value?: string) => {
 
 const codexProviderLabel = (value?: string) => {
   if (!value) return t('agent.statusDetecting')
-  return codexProviderLabels[value as AgentProvider | 'custom'] || value
+  return codexProviderLabels.value[value as AgentProvider | 'custom'] || value
 }
 
 const openCodeProviderLabel = (value?: string) => {
   if (!value) return t('agent.statusDetecting')
-  return codexProviderLabels[value as AgentProvider | 'custom'] || value
+  return codexProviderLabels.value[value as AgentProvider | 'custom'] || value
 }
 
 const claudeTargetBaseUrl = () => {
@@ -136,6 +140,7 @@ const claudeTargetBaseUrl = () => {
 const codexTargetBaseUrl = () => {
   switch (selectedCodexProvider.value) {
     case 'ccx':
+    case 'ccx-openai':
       return agentStatuses.value.codex?.targetBaseUrl || t('agent.localGateway')
     case 'openai':
       return 'https://api.openai.com/v1'
@@ -226,10 +231,10 @@ const loadAgentStatuses = async () => {
     if (claude.provider === 'dashscope' && claude.currentBaseUrl) {
       selectedDashScopePlan.value = resolveDashScopePlan(claude.currentBaseUrl)
     }
-    if (codex.provider && codex.provider !== 'ccx' && codex.provider !== '') {
+    if (codex.provider && codex.provider !== '') {
       selectedCodexProvider.value = codex.provider as AgentProvider
     } else {
-      selectedCodexProvider.value = 'ccx'
+      selectedCodexProvider.value = 'ccx-openai'
     }
     if (opencode.provider && opencode.provider !== 'ccx' && opencode.provider !== '') {
       selectedOpenCodeProvider.value = opencode.provider as AgentProvider
@@ -255,7 +260,7 @@ const canApplyAgent = (platform: AgentPlatform) => {
   if (configLoading.value) return false
   if (platform === 'codex') {
     // CCX 和 OpenAI 不需要验证，后端会使用代理 key 或 auth.json 中现有的 key
-    if (selectedCodexProvider.value === 'ccx' || selectedCodexProvider.value === 'openai') {
+    if (selectedCodexProvider.value === 'ccx' || selectedCodexProvider.value === 'ccx-openai' || selectedCodexProvider.value === 'openai') {
       return true
     }
     // 第三方 provider 必须有输入的 key 或已保存的 key
@@ -303,7 +308,7 @@ const applyAgent = async (platform: AgentPlatform) => {
     }
     if (platform === 'codex') {
       request.provider = selectedCodexProvider.value
-      if (selectedCodexProvider.value !== 'ccx') {
+      if (selectedCodexProvider.value !== 'ccx' && selectedCodexProvider.value !== 'ccx-openai') {
         const inputKey = codexOpenAIKey.value.trim()
         request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedCodexProvider.value}`] || ''
       }
@@ -339,7 +344,7 @@ const showApplyPreview = async (platform: AgentPlatform) => {
   }
   if (platform === 'codex') {
     request.provider = selectedCodexProvider.value
-    if (selectedCodexProvider.value !== 'ccx') {
+    if (selectedCodexProvider.value !== 'ccx' && selectedCodexProvider.value !== 'ccx-openai') {
       const inputKey = codexOpenAIKey.value.trim()
       request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedCodexProvider.value}`] || ''
     }
@@ -349,6 +354,19 @@ const showApplyPreview = async (platform: AgentPlatform) => {
     if (selectedOpenCodeProvider.value !== 'ccx') {
       const inputKey = openCodeOpenAIKey.value.trim()
       request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedOpenCodeProvider.value}`] || ''
+    }
+  }
+  // 检测 CCX 模式切换，显示会话迁移警告
+  diffWarning.value = undefined
+  if (platform === 'codex') {
+    const currentProvider = agentStatuses.value.codex?.provider || ''
+    const targetProvider = selectedCodexProvider.value
+    const isOpenAIMode = currentProvider === 'ccx-openai' || currentProvider === 'openai' || currentProvider === ''
+    const isTargetNative = targetProvider === 'ccx'
+    const isNativeMode = currentProvider === 'ccx'
+    const isTargetOpenAI = targetProvider === 'ccx-openai'
+    if ((isOpenAIMode && isTargetNative) || (isNativeMode && isTargetOpenAI)) {
+      diffWarning.value = t('agent.sessionMigrationWarning')
     }
   }
   diffPendingPlatform.value = platform
@@ -440,6 +458,7 @@ export function useAgentConfig() {
     diffMode,
     diffLoading,
     diffPendingPlatform,
+    diffWarning,
     showApplyPreview,
     showRestorePreview,
     confirmApply,

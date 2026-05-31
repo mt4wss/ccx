@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { AlertTriangle } from 'lucide-vue-next'
 import type { ConfigDiffResult, DiffLine, FileDiff } from '@/types'
 import { useLanguage } from '@/composables/useLanguage'
 
@@ -20,6 +21,7 @@ const props = defineProps<{
   platform: string
   result: ConfigDiffResult | null
   loading: boolean
+  warning?: string
 }>()
 
 const emit = defineEmits<{
@@ -137,6 +139,12 @@ const processedFiles = computed(() => {
               <h2 class="text-lg font-semibold text-foreground">{{ title }}</h2>
               <div class="text-xs text-muted-foreground">{{ platformLabel }}</div>
             </div>
+          </div>
+
+          <!-- Warning banner -->
+          <div v-if="warning" class="mx-6 mt-3 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-300">
+            <AlertTriangle class="h-4 w-4 shrink-0 mt-0.5" />
+            <p>{{ warning }}</p>
           </div>
 
           <!-- Content -->

@@ -58,7 +58,7 @@ const emit = defineEmits<{
 
 const codexKeyRequired = computed(() => {
   const p = props.selectedCodexProvider
-  return p !== 'ccx' && p !== 'openai'
+  return p !== 'ccx' && p !== 'ccx-openai' && p !== 'openai'
 })
 
 const { t } = useLanguage()
@@ -81,14 +81,11 @@ onMounted(async () => {
   } catch { editors.value = [] }
 })
 
-const openFileInEditor = async (filePath: string) => {
-  if (editors.value.length === 0) return
+const openFileInEditor = async (editorPath: string, filePath: string) => {
+  if (!editorPath || !filePath) return
   openingFile.value = filePath
   try {
-    const editorPath = editors.value.length === 1 ? editors.value[0].path : ''
-    if (editorPath) {
-      await OpenFileInEditor(editorPath, filePath)
-    }
+    await OpenFileInEditor(editorPath, filePath)
   } catch { /* ignore */ }
   finally { openingFile.value = '' }
 }
@@ -123,17 +120,26 @@ const openFileInEditor = async (filePath: string) => {
           <span class="text-muted-foreground">{{ t('agent.configPath') }}</span>
           <div class="flex min-w-0 items-center justify-end gap-2">
             <code class="inline-block min-w-0 max-w-full rounded bg-secondary px-2 py-0.5 text-right text-xs break-all">{{ agentStatus?.configPath || '--' }}</code>
-            <Button
-              v-if="agentStatus?.configPath && editors.length > 0"
-              variant="ghost"
-              size="icon-sm"
-              :title="t('agent.openFileInEditor')"
-              class="shrink-0"
-              :disabled="openingFile === agentStatus.configPath"
-              @click="openFileInEditor(agentStatus.configPath)"
-            >
-              <ExternalLink class="w-3.5 h-3.5" />
-            </Button>
+            <div v-if="agentStatus?.configPath && editors.length > 0" class="relative shrink-0">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                :title="t('agent.openFileInEditor')"
+                :disabled="openingFile === agentStatus.configPath"
+                @click="editors.length === 1 && openFileInEditor(editors[0].path, agentStatus.configPath)"
+              >
+                <ExternalLink class="w-3.5 h-3.5" />
+              </Button>
+              <select
+                v-if="editors.length > 1"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                :disabled="openingFile === agentStatus.configPath"
+                @change="($event.target as HTMLSelectElement).value && openFileInEditor(($event.target as HTMLSelectElement).value, agentStatus!.configPath!); ($event.target as HTMLSelectElement).selectedIndex = 0"
+              >
+                <option value="" disabled selected></option>
+                <option v-for="ed in editors" :key="ed.id" :value="ed.path">{{ ed.name }}</option>
+              </select>
+            </div>
           </div>
         </div>
         <!-- 认证文件 — 带编辑器打开按钮 -->
@@ -141,17 +147,26 @@ const openFileInEditor = async (filePath: string) => {
           <span class="text-muted-foreground">{{ t('agent.authPath') }}</span>
           <div class="flex min-w-0 items-center justify-end gap-2">
             <code class="inline-block min-w-0 max-w-full rounded bg-secondary px-2 py-0.5 text-right text-xs break-all">{{ agentStatus.authPath }}</code>
-            <Button
-              v-if="editors.length > 0"
-              variant="ghost"
-              size="icon-sm"
-              :title="t('agent.openFileInEditor')"
-              class="shrink-0"
-              :disabled="openingFile === agentStatus.authPath"
-              @click="openFileInEditor(agentStatus.authPath!)"
-            >
-              <ExternalLink class="w-3.5 h-3.5" />
-            </Button>
+            <div v-if="editors.length > 0" class="relative shrink-0">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                :title="t('agent.openFileInEditor')"
+                :disabled="openingFile === agentStatus.authPath"
+                @click="editors.length === 1 && openFileInEditor(editors[0].path, agentStatus.authPath!)"
+              >
+                <ExternalLink class="w-3.5 h-3.5" />
+              </Button>
+              <select
+                v-if="editors.length > 1"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                :disabled="openingFile === agentStatus.authPath"
+                @change="($event.target as HTMLSelectElement).value && openFileInEditor(($event.target as HTMLSelectElement).value, agentStatus!.authPath!); ($event.target as HTMLSelectElement).selectedIndex = 0"
+              >
+                <option value="" disabled selected></option>
+                <option v-for="ed in editors" :key="ed.id" :value="ed.path">{{ ed.name }}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -178,7 +193,8 @@ const openFileInEditor = async (filePath: string) => {
             class="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             @change="emit('update:selectedCodexProvider', ($event.target as HTMLSelectElement).value as AgentProvider)"
           >
-            <option value="ccx">{{ t('agent.provider.localGateway') }}</option>
+            <option value="ccx-openai">{{ t('agent.provider.ccxOpenAI') }}</option>
+            <option value="ccx">{{ t('agent.provider.ccxNative') }}</option>
             <option value="openai">{{ t('agent.provider.openaiDirect') }}</option>
             <option value="dashscope">{{ t('agent.provider.dashscopeDirect') }}</option>
             <option value="opencode-zen">{{ t('agent.provider.opencodeZenDirect') }}</option>
@@ -186,7 +202,7 @@ const openFileInEditor = async (filePath: string) => {
           </select>
         </div>
         <button
-          v-if="selectedCodexProvider && selectedCodexProvider !== 'ccx' && providerConsoleLinks[selectedCodexProvider]"
+          v-if="selectedCodexProvider && selectedCodexProvider !== 'ccx' && selectedCodexProvider !== 'ccx-openai' && providerConsoleLinks[selectedCodexProvider]"
           type="button"
           class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           @click="openProviderConsole(selectedCodexProvider)"
@@ -194,7 +210,7 @@ const openFileInEditor = async (filePath: string) => {
           {{ t('agent.openConsole') }}
           <ExternalLink class="h-3 w-3" />
         </button>
-        <div v-if="selectedCodexProvider !== 'ccx'" class="space-y-1.5">
+        <div v-if="selectedCodexProvider !== 'ccx' && selectedCodexProvider !== 'ccx-openai'" class="space-y-1.5">
           <Label class="text-xs text-muted-foreground">API Key <span v-if="codexKeyRequired" class="text-destructive">*</span></Label>
           <Input
             type="password"

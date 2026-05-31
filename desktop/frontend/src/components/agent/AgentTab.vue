@@ -39,6 +39,7 @@ const {
   diffMode,
   diffLoading,
   diffPendingPlatform,
+  diffWarning,
   showApplyPreview,
   showRestorePreview,
   confirmApply,
@@ -135,6 +136,7 @@ const handleConfirm = async () => {
       :platform="diffPendingPlatform"
       :result="diffResult"
       :loading="diffLoading"
+      :warning="diffWarning"
       @confirm="handleConfirm"
       @cancel="closeDiffDialog"
     />
