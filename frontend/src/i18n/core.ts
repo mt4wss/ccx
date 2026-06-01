@@ -31,14 +31,23 @@ export function resolveInitialLocale(
 }
 
 export function getRuntimeLocale(): SupportedLocale {
+  // Priority 1: server-injected runtime config
   if (typeof window !== 'undefined' && window.__CCX_RUNTIME_CONFIG__?.uiLanguage) {
     return normalizeLocale(window.__CCX_RUNTIME_CONFIG__.uiLanguage)
   }
 
+  // Priority 2: build-time global variable
   if (typeof globalThis.__APP_UI_LANGUAGE__ !== 'undefined') {
     return normalizeLocale(globalThis.__APP_UI_LANGUAGE__)
   }
 
+  // Priority 3: browser language detection (only accept supported locales)
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    const detected = SUPPORTED_LOCALE_MAP[navigator.language.trim().toLowerCase()]
+    if (detected) return detected
+  }
+
+  // Priority 4: hardcoded default
   return DEFAULT_LOCALE
 }
 

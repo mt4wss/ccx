@@ -55,7 +55,7 @@ func NewEnvConfig() *EnvConfig {
 		Port:                 getEnvAsInt("PORT", 3000),
 		Env:                  env,
 		EnableWebUI:          getEnv("ENABLE_WEB_UI", "true") != "false",
-		UILanguage:           normalizeUILanguage(getEnv("APP_UI_LANGUAGE", "en")),
+		UILanguage:           normalizeUILanguage(getEnv("APP_UI_LANGUAGE", "zh-CN")),
 		ProxyAccessKey:       getEnv("PROXY_ACCESS_KEY", "your-proxy-access-key"),
 		AdminAccessKey:       getEnv("ADMIN_ACCESS_KEY", ""), // 空值时回退到 ProxyAccessKey
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
