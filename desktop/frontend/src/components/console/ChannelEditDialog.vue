@@ -1204,7 +1204,7 @@ function buildCurrentPayload() {
                       <datalist v-if="targetModelOptions.length" :id="`target-models-${index}`">
                         <option v-for="m in targetModelOptions" :key="m" :value="m" />
                       </datalist>
-                      <Select v-model="row.reasoning">
+                      <Select v-if="supportsOpenAIAdvanced" v-model="row.reasoning">
                         <SelectTrigger class="h-7 w-28 text-xs"><SelectValue :placeholder="tf('console.form.reasoningEffort', '思考强度')" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value || 'default'" :value="opt.value">{{ opt.label }}</SelectItem>
@@ -1226,10 +1226,42 @@ function buildCurrentPayload() {
                       <datalist v-if="targetModelOptions.length" id="target-models-new">
                         <option v-for="m in targetModelOptions" :key="m" :value="m" />
                       </datalist>
+                      <Select v-if="supportsOpenAIAdvanced" v-model="newModelMapping.reasoning">
+                        <SelectTrigger class="h-7 w-28 text-xs"><SelectValue :placeholder="tf('console.form.reasoningEffort', '思考强度')" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value || 'default'" :value="opt.value">{{ opt.label }}</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button type="button" variant="outline" size="sm" :disabled="!newModelMapping.source.trim() || !newModelMapping.target.trim()" @click="addModelMappingRow">
                         <Plus class="h-3.5 w-3.5" />
                       </Button>
                     </div>
+                  </div>
+
+                  <!-- fastMode + textVerbosity（仅 OpenAI/Responses，对齐 WebUI 模型卡片内布局） -->
+                  <div v-if="supportsOpenAIAdvanced" class="grid gap-3 md:grid-cols-2">
+                    <div class="flex items-center gap-2">
+                      <Switch v-model="form.fastMode" />
+                      <Label class="text-xs">{{ tf('console.form.fastMode', '快速模式') }}</Label>
+                    </div>
+                    <div class="space-y-1">
+                      <Label class="text-[10px]">{{ tf('console.form.textVerbosity', 'Text verbosity') }}</Label>
+                      <Select v-model="form.textVerbosity">
+                        <SelectTrigger class="h-7"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="item in textVerbosityOptions" :key="item.value || 'default'" :value="item.value">{{ item.label }}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <!-- Vision fallback model（仅当有模型级 noVision 标记时显示，对齐 WebUI） -->
+                  <div v-if="getNoVisionModelsFromRows().length > 0" class="space-y-1.5">
+                    <Label>{{ tf('console.form.visionFallbackModel', 'Vision fallback model') }}</Label>
+                    <Input v-model="form.visionFallbackModel" class="h-7 text-xs" placeholder="mimo-v2.5" :list="targetModelOptions.length ? 'vision-fallback-models' : undefined" />
+                    <datalist v-if="targetModelOptions.length" id="vision-fallback-models">
+                      <option v-for="m in targetModelOptions" :key="m" :value="m" />
+                    </datalist>
                   </div>
                   <div class="space-y-1.5">
                     <Label>{{ tf('console.form.supportedModels', '支持的模型（每行一个，留空=全部）') }}</Label>
@@ -1264,8 +1296,7 @@ function buildCurrentPayload() {
                       <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Vision</div>
                       <div class="grid gap-2 md:grid-cols-2">
                         <div class="flex items-center gap-2"><Switch v-model="form.noVision" /><Label class="text-xs">{{ tf('console.form.noVision', '禁用视觉') }}</Label></div>
-                        <div class="space-y-1"><Label class="text-[10px]">Vision fallback model</Label><Input v-model="form.visionFallbackModel" class="h-7 text-xs" placeholder="mimo-v2.5" /></div>
-                        <div class="space-y-1 md:col-span-2"><Label class="text-[10px]">No vision models（每行一个）</Label><Textarea v-model="form.noVisionModelsText" rows="2" class="font-mono text-xs" /></div>
+                        <div class="space-y-1 md:col-span-2"><Label class="text-[10px]">{{ tf('console.form.noVisionModels', 'No vision models（每行一个）') }}</Label><Textarea v-model="form.noVisionModelsText" rows="2" class="font-mono text-xs" /></div>
                       </div>
                     </div>
 
@@ -1277,9 +1308,7 @@ function buildCurrentPayload() {
                         <div v-if="form.serviceType === 'claude' && channelType !== 'images'" class="flex items-center gap-2"><Switch v-model="form.passbackThinkingBlocks" /><Label class="text-xs">{{ tf('console.form.passbackThinking', '回传思考块') }}</Label></div>
                         <div v-if="form.serviceType === 'gemini' && ['gemini','messages','chat','responses'].includes(channelType)" class="flex items-center gap-2"><Switch v-model="form.stripThoughtSignature" /><Label class="text-xs">{{ tf('console.form.stripThoughtSignature', '移除思考签名') }}</Label></div>
                         <div v-if="form.serviceType === 'gemini' && ['gemini','messages'].includes(channelType)" class="flex items-center gap-2"><Switch v-model="form.injectDummyThoughtSignature" /><Label class="text-xs">{{ tf('console.form.injectDummySignature', '注入假思考签名') }}</Label></div>
-                        <div v-if="supportsOpenAIAdvanced" class="space-y-1"><Label class="text-[10px]">{{ tf('console.form.reasoningParamStyle', 'Reasoning 参数风格') }}</Label><Select v-model="form.reasoningParamStyle"><SelectTrigger class="h-7"><SelectValue /></SelectTrigger><SelectContent><SelectItem v-for="item in reasoningParamStyleOptions" :key="item.value" :value="item.value">{{ item.label }}</SelectItem></SelectContent></Select></div>
-                        <div v-if="supportsOpenAIAdvanced" class="space-y-1"><Label class="text-[10px]">{{ tf('console.form.textVerbosity', 'Text verbosity') }}</Label><Select v-model="form.textVerbosity"><SelectTrigger class="h-7"><SelectValue /></SelectTrigger><SelectContent><SelectItem v-for="item in textVerbosityOptions" :key="item.value || 'default'" :value="item.value">{{ item.label }}</SelectItem></SelectContent></Select></div>
-                        <div class="flex items-center gap-2"><Switch v-model="form.fastMode" /><Label class="text-xs">{{ tf('console.form.fastMode', '快速模式') }}</Label></div>
+                        <div v-if="supportsOpenAIAdvanced" class="space-y-1"><Label class="text-[10px]">{{ tf('console.form.reasoningParamStyle', '思考方式') }}</Label><Select v-model="form.reasoningParamStyle"><SelectTrigger class="h-7"><SelectValue /></SelectTrigger><SelectContent><SelectItem v-for="item in reasoningParamStyleOptions" :key="item.value" :value="item.value">{{ item.label }}</SelectItem></SelectContent></Select></div>
                       </div>
                     </div>
 
