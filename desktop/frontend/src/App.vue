@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onMounted } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import StatusTab from '@/components/status/StatusTab.vue'
 import AgentTab from '@/components/agent/AgentTab.vue'
 import EnvTab from '@/components/env/EnvTab.vue'
-import WebUITab from '@/components/webui/WebUITab.vue'
+import ConsoleTab from '@/components/console/ConsoleTab.vue'
 import ChannelTab from '@/components/channel/ChannelTab.vue'
 import SetupLoading from '@/components/setup/SetupLoading.vue'
 import SetupView from '@/components/setup/SetupView.vue'
@@ -13,8 +13,6 @@ import { useWailsEvents } from '@/composables/useWailsEvents'
 import { useSetup } from '@/composables/useSetup'
 import { useLanguage } from '@/composables/useLanguage'
 import { useTheme } from '@/composables/useTheme'
-import { RefreshCw } from 'lucide-vue-next'
-
 import type { TabValue } from '@/types'
 
 const activeTab = ref<TabValue>('status')
@@ -45,17 +43,6 @@ const switchToWeb = () => {
   activeTab.value = 'web'
 }
 
-const webTabRef = ref<InstanceType<typeof WebUITab> | null>(null)
-const refreshWebUI = () => webTabRef.value?.refreshIframe()
-
-// 切换到 Web UI 标签时自动刷新 iframe，避免 v-show 隐藏状态下浏览器挂起加载导致白屏
-watch(activeTab, async (tab) => {
-  if (tab === 'web') {
-    await nextTick()
-    refreshWebUI()
-  }
-})
-
 // 选项卡标题映射
 const tabTitles = computed<Record<TabValue, string>>(() => ({
   status: t('tab.statusTitle'),
@@ -84,14 +71,6 @@ const tabTitles = computed<Record<TabValue, string>>(() => ({
           <h2 class="text-sm font-bold text-foreground tracking-wide uppercase">
             {{ tabTitles[activeTab] }}
           </h2>
-          <button
-            v-if="activeTab === 'web'"
-            class="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-secondary"
-            :title="t('common.refreshWebUI')"
-            @click="refreshWebUI"
-          >
-            <RefreshCw class="w-3.5 h-3.5" />
-          </button>
         </div>
 
         <div class="flex items-center gap-2">
@@ -120,7 +99,7 @@ const tabTitles = computed<Record<TabValue, string>>(() => ({
       <!-- 独立内容滚动区域 -->
       <div
         class="flex-1 overflow-y-auto"
-        :class="activeTab === 'web' ? 'p-0' : 'px-8 py-7'"
+        :class="'px-8 py-7'"
       >
         <div class="h-full">
           <!-- v-show 常驻缓存各 Tab，切换时保留内部状态与滚动位置 -->
@@ -137,7 +116,7 @@ const tabTitles = computed<Record<TabValue, string>>(() => ({
             <EnvTab />
           </div>
           <div v-show="activeTab === 'web'" class="h-full">
-            <WebUITab ref="webTabRef" :status="status" :loading="false" />
+            <ConsoleTab />
           </div>
         </div>
       </div>

@@ -12,7 +12,7 @@ import {
   Activity,
   Settings,
   Sliders,
-  Globe,
+  LayoutDashboard,
   Monitor,
   Play,
   Square,
@@ -71,7 +71,7 @@ const menuItems = computed(() => [
   { id: 'agent', label: t('nav.agent'), icon: Settings, desc: t('nav.agentDesc') },
   { id: 'channels', label: t('nav.channels'), icon: Network, desc: t('nav.channelsDesc') },
   { id: 'env', label: t('nav.env'), icon: Sliders, desc: t('nav.envDesc') },
-  { id: 'web', label: t('nav.web'), icon: Globe, desc: t('nav.webDesc') }
+  { id: 'web', label: t('nav.web'), icon: LayoutDashboard, desc: t('nav.webDesc') }
 ] as const)
 
 const statusLabel = computed(() => {
