@@ -411,6 +411,7 @@ onBeforeUnmount(() => {
                 {{ error }}
               </div>
 
+              <!-- ── 创建模式：仅保留快速粘贴 ── -->
               <section v-if="!isEditMode" class="space-y-3 border border-primary/20 bg-primary/5 p-4 lg:col-span-2">
                 <div class="flex items-center justify-between gap-3">
                   <div>
@@ -429,7 +430,7 @@ onBeforeUnmount(() => {
                 </div>
                 <Textarea
                   v-model="quickInput"
-                  rows="4"
+                  rows="10"
                   class="font-mono text-xs"
                   placeholder="https://api.example.com/v1&#10;sk-..."
                   @paste="handleQuickPaste(($event.clipboardData?.getData('text/plain') || ''))"
@@ -468,221 +469,217 @@ onBeforeUnmount(() => {
                 </div>
               </section>
 
-              <section class="space-y-3 border border-border bg-background/40 p-4">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {{ tf('console.form.basicInfo', '基础信息') }}
-                </h4>
-                <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.name', '名称') }} *</Label>
-                    <Input v-model="form.name" :class="{ 'border-destructive': errors.name }" />
-                    <p v-if="errors.name" class="text-[10px] text-destructive">{{ errors.name }}</p>
+              <!-- ── 编辑模式：完整表单 ── -->
+              <template v-if="isEditMode">
+                <section class="space-y-3 border border-border bg-background/40 p-4">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {{ tf('console.form.basicInfo', '基础信息') }}
+                  </h4>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.name', '名称') }} *</Label>
+                      <Input v-model="form.name" :class="{ 'border-destructive': errors.name }" />
+                      <p v-if="errors.name" class="text-[10px] text-destructive">{{ errors.name }}</p>
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.serviceType', '服务类型') }} *</Label>
+                      <Select v-model="form.serviceType">
+                        <SelectTrigger :class="{ 'border-destructive': errors.serviceType }">
+                          <SelectValue :placeholder="tf('console.form.selectServiceType', '选择服务类型')" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="claude">Claude</SelectItem>
+                          <SelectItem value="openai">OpenAI</SelectItem>
+                          <SelectItem value="gemini">Gemini</SelectItem>
+                          <SelectItem value="responses">Responses</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p v-if="errors.serviceType" class="text-[10px] text-destructive">{{ errors.serviceType }}</p>
+                    </div>
                   </div>
                   <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.serviceType', '服务类型') }} *</Label>
-                    <Select v-model="form.serviceType">
-                      <SelectTrigger :class="{ 'border-destructive': errors.serviceType }">
-                        <SelectValue :placeholder="tf('console.form.selectServiceType', '选择服务类型')" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="claude">Claude</SelectItem>
-                        <SelectItem value="openai">OpenAI</SelectItem>
-                        <SelectItem value="gemini">Gemini</SelectItem>
-                        <SelectItem value="responses">Responses</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p v-if="errors.serviceType" class="text-[10px] text-destructive">{{ errors.serviceType }}</p>
+                    <Label>{{ tf('console.form.description', '描述') }}</Label>
+                    <Textarea v-model="form.description" rows="2" />
                   </div>
-                </div>
-                <div class="space-y-1.5">
-                  <Label>{{ tf('console.form.description', '描述') }}</Label>
-                  <Textarea v-model="form.description" rows="2" />
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label>Website</Label>
-                    <Input v-model="form.website" placeholder="https://example.com" />
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                      <Label>Website</Label>
+                      <Input v-model="form.website" placeholder="https://example.com" />
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.requestTimeoutMs', '请求超时（ms）') }}</Label>
+                      <Input v-model="form.requestTimeoutMs" type="number" placeholder="60000" :class="{ 'border-destructive': errors.requestTimeoutMs }" />
+                      <p v-if="errors.requestTimeoutMs" class="text-[10px] text-destructive">{{ errors.requestTimeoutMs }}</p>
+                    </div>
                   </div>
-                  <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.requestTimeoutMs', '请求超时（ms）') }}</Label>
-                    <Input v-model="form.requestTimeoutMs" type="number" placeholder="60000" :class="{ 'border-destructive': errors.requestTimeoutMs }" />
-                    <p v-if="errors.requestTimeoutMs" class="text-[10px] text-destructive">{{ errors.requestTimeoutMs }}</p>
-                  </div>
-                </div>
-              </section>
+                </section>
 
-              <section class="space-y-3 border border-border bg-background/40 p-4">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {{ tf('console.form.connection', '连接') }}
-                </h4>
-                <div class="space-y-1.5">
-                  <Label>{{ tf('console.form.baseUrl', 'Base URL') }} *</Label>
-                  <Input
-                    v-model="form.baseUrl"
-                    placeholder="https://api.example.com"
-                    :class="{ 'border-destructive': errors.baseUrl }"
-                    @paste="handleQuickPaste(($event.clipboardData?.getData('text/plain') || ''))"
-                  />
-                  <p v-if="errors.baseUrl" class="text-[10px] text-destructive">{{ errors.baseUrl }}</p>
-                </div>
-                <div class="space-y-1.5">
-                  <Label>{{ tf('console.form.additionalUrls', '额外 URL（每行一个）') }}</Label>
-                  <Textarea v-model="form.baseUrlsText" rows="3" placeholder="https://backup.example.com" />
-                </div>
-                <div class="grid grid-cols-2 gap-3">
+                <section class="space-y-3 border border-border bg-background/40 p-4">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {{ tf('console.form.connection', '连接') }}
+                  </h4>
                   <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.proxyUrl', '代理 URL') }}</Label>
-                    <Input v-model="form.proxyUrl" placeholder="socks5://..." />
+                    <Label>{{ tf('console.form.baseUrl', 'Base URL') }} *</Label>
+                    <Input
+                      v-model="form.baseUrl"
+                      placeholder="https://api.example.com"
+                      :class="{ 'border-destructive': errors.baseUrl }"
+                    />
+                    <p v-if="errors.baseUrl" class="text-[10px] text-destructive">{{ errors.baseUrl }}</p>
                   </div>
                   <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.routePrefix', '路由前缀') }}</Label>
-                    <Input v-model="form.routePrefix" placeholder="kimi" />
+                    <Label>{{ tf('console.form.additionalUrls', '额外 URL（每行一个）') }}</Label>
+                    <Textarea v-model="form.baseUrlsText" rows="3" placeholder="https://backup.example.com" />
                   </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <Switch v-model="form.insecureSkipVerify" />
-                  <Label class="text-xs">{{ tf('console.form.insecureSkipVerify', '跳过 TLS 验证') }}</Label>
-                </div>
-              </section>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.proxyUrl', '代理 URL') }}</Label>
+                      <Input v-model="form.proxyUrl" placeholder="socks5://..." />
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.routePrefix', '路由前缀') }}</Label>
+                      <Input v-model="form.routePrefix" placeholder="kimi" />
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <Switch v-model="form.insecureSkipVerify" />
+                    <Label class="text-xs">{{ tf('console.form.insecureSkipVerify', '跳过 TLS 验证') }}</Label>
+                  </div>
+                </section>
 
-              <section class="space-y-3 border border-border bg-background/40 p-4">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {{ tf('console.form.authentication', '认证') }}
-                </h4>
-                <div class="space-y-1.5">
-                  <Label>{{ tf('console.form.apiKeys', 'API Keys（每行一个）') }}</Label>
-                  <Textarea
-                    v-model="form.apiKeysText"
-                    rows="4"
-                    placeholder="sk-xxx&#10;sk-yyy"
-                    class="font-mono text-xs"
-                    @paste="handleQuickPaste(($event.clipboardData?.getData('text/plain') || ''))"
-                  />
-                </div>
-                <div v-if="disabledApiKeys.length" class="space-y-2 border border-amber-500/20 bg-amber-500/10 p-2">
-                  <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                    {{ tf('console.form.disabledKeys', 'Disabled keys') }}
-                  </div>
-                  <div v-for="item in disabledApiKeys" :key="item.key" class="flex items-center justify-between gap-2 text-xs">
-                    <span class="min-w-0 truncate font-mono" :title="item.message || item.reason">{{ item.key }}</span>
-                    <Button size="sm" variant="outline" :disabled="restoringKey === item.key" @click="handleRestoreKey(item.key)">
-                      <Loader2 v-if="restoringKey === item.key" class="h-3 w-3 animate-spin" />
-                      <RotateCcw v-else class="h-3 w-3" />
-                      {{ tf('console.form.restoreKey', 'Restore') }}
-                    </Button>
-                  </div>
-                </div>
-                <div v-if="historicalApiKeys.length" class="text-xs text-muted-foreground">
-                  {{ historicalApiKeys.length }} {{ tf('console.form.historicalKeys', 'historical keys recorded') }}
-                </div>
-              </section>
-
-              <section class="space-y-3 border border-border bg-background/40 p-4">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {{ tf('console.form.models', '模型') }}
-                </h4>
-                <div class="space-y-1.5">
-                  <Label>{{ tf('console.form.modelMapping', '模型映射（JSON）') }}</Label>
-                  <Textarea v-model="form.modelMappingText" rows="4" class="font-mono text-xs" />
-                </div>
-                <div class="space-y-1.5">
-                  <Label>Reasoning Mapping（JSON）</Label>
-                  <Textarea v-model="form.reasoningMappingText" rows="3" class="font-mono text-xs" />
-                </div>
-                <div class="space-y-1.5">
-                  <Label>{{ tf('console.form.supportedModels', '支持的模型（每行一个，留空=全部）') }}</Label>
-                  <Textarea v-model="form.supportedModelsText" rows="3" placeholder="gpt-4*&#10;claude-3*" class="font-mono text-xs" />
-                </div>
-              </section>
-
-              <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
-                <button
-                  type="button"
-                  class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                  @click="showProtocolOptions = !showProtocolOptions"
-                >
-                  <ChevronDown v-if="!showProtocolOptions" class="h-3.5 w-3.5" />
-                  <ChevronUp v-else class="h-3.5 w-3.5" />
-                  {{ tf('console.form.protocolOptions', '协议与模型高级选项') }}
-                </button>
-                <div v-if="showProtocolOptions" class="grid gap-4 lg:grid-cols-3">
+                <section class="space-y-3 border border-border bg-background/40 p-4">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {{ tf('console.form.authentication', '认证') }}
+                  </h4>
                   <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.reasoningParamStyle', 'Reasoning 参数风格') }}</Label>
-                    <Select v-model="form.reasoningParamStyle">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem v-for="item in reasoningParamStyleOptions" :key="item.value" :value="item.value">
-                          {{ item.label }}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>{{ tf('console.form.apiKeys', 'API Keys（每行一个）') }}</Label>
+                    <Textarea v-model="form.apiKeysText" rows="4" placeholder="sk-xxx&#10;sk-yyy" class="font-mono text-xs" />
+                  </div>
+                  <div v-if="disabledApiKeys.length" class="space-y-2 border border-amber-500/20 bg-amber-500/10 p-2">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                      {{ tf('console.form.disabledKeys', 'Disabled keys') }}
+                    </div>
+                    <div v-for="item in disabledApiKeys" :key="item.key" class="flex items-center justify-between gap-2 text-xs">
+                      <span class="min-w-0 truncate font-mono" :title="item.message || item.reason">{{ item.key }}</span>
+                      <Button size="sm" variant="outline" :disabled="restoringKey === item.key" @click="handleRestoreKey(item.key)">
+                        <Loader2 v-if="restoringKey === item.key" class="h-3 w-3 animate-spin" />
+                        <RotateCcw v-else class="h-3 w-3" />
+                        {{ tf('console.form.restoreKey', 'Restore') }}
+                      </Button>
+                    </div>
+                  </div>
+                  <div v-if="historicalApiKeys.length" class="text-xs text-muted-foreground">
+                    {{ historicalApiKeys.length }} {{ tf('console.form.historicalKeys', 'historical keys recorded') }}
+                  </div>
+                </section>
+
+                <section class="space-y-3 border border-border bg-background/40 p-4">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {{ tf('console.form.models', '模型') }}
+                  </h4>
+                  <div class="space-y-1.5">
+                    <Label>{{ tf('console.form.modelMapping', '模型映射（JSON）') }}</Label>
+                    <Textarea v-model="form.modelMappingText" rows="4" class="font-mono text-xs" />
                   </div>
                   <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.textVerbosity', 'Text verbosity') }}</Label>
-                    <Select v-model="form.textVerbosity">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem v-for="item in textVerbosityOptions" :key="item.value || 'default'" :value="item.value">
-                          {{ item.label }}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Reasoning Mapping（JSON）</Label>
+                    <Textarea v-model="form.reasoningMappingText" rows="3" class="font-mono text-xs" />
                   </div>
                   <div class="space-y-1.5">
-                    <Label>Vision fallback model</Label>
-                    <Input v-model="form.visionFallbackModel" placeholder="mimo-v2.5" />
+                    <Label>{{ tf('console.form.supportedModels', '支持的模型（每行一个，留空=全部）') }}</Label>
+                    <Textarea v-model="form.supportedModelsText" rows="3" placeholder="gpt-4*&#10;claude-3*" class="font-mono text-xs" />
                   </div>
-                  <div class="space-y-1.5 lg:col-span-3">
-                    <Label>No vision models（每行一个）</Label>
-                    <Textarea v-model="form.noVisionModelsText" rows="2" class="font-mono text-xs" />
-                  </div>
-                </div>
-              </section>
+                </section>
 
-              <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
-                <button
-                  type="button"
-                  class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                  @click="showAdvanced = !showAdvanced"
-                >
-                  <ChevronDown v-if="!showAdvanced" class="h-3.5 w-3.5" />
-                  <ChevronUp v-else class="h-3.5 w-3.5" />
-                  {{ tf('console.form.advancedFlags', '高级选项') }}
-                </button>
-                <div v-if="showAdvanced" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <div
-                    v-for="flag in [
-                      { key: 'noVision', label: tf('console.form.noVision', '禁用视觉') },
-                      { key: 'passbackReasoningContent', label: tf('console.form.passbackReasoning', '回传推理内容') },
-                      { key: 'passbackThinkingBlocks', label: tf('console.form.passbackThinking', '回传思考块') },
-                      { key: 'fastMode', label: tf('console.form.fastMode', '快速模式') },
-                      { key: 'lowQuality', label: tf('console.form.lowQuality', '低质量标记') },
-                      { key: 'injectDummyThoughtSignature', label: tf('console.form.injectDummySignature', '注入假思考签名') },
-                      { key: 'stripThoughtSignature', label: tf('console.form.stripThoughtSignature', '移除思考签名') },
-                      { key: 'stripEmptyTextBlocks', label: tf('console.form.stripEmptyBlocks', '移除空文本块') },
-                      { key: 'normalizeSystemRoleToTopLevel', label: tf('console.form.normalizeSystem', '规范化系统角色') },
-                      { key: 'normalizeMetadataUserId', label: tf('console.form.normalizeUserId', '规范化用户 ID') },
-                      { key: 'normalizeNonstandardChatRoles', label: tf('console.form.normalizeChatRoles', '规范化 Chat 角色') },
-                      { key: 'autoBlacklistBalance', label: tf('console.form.autoBlacklist', '自动黑名单余额异常 Key') },
-                      { key: 'codexNativeToolPassthrough', label: tf('console.form.codexNativeTools', 'Codex 原生工具透传') },
-                      { key: 'codexToolCompat', label: tf('console.form.codexCompat', 'Codex 工具兼容') },
-                      { key: 'stripCodexClientTools', label: tf('console.form.stripCodexTools', '移除 Codex 客户端工具') },
-                    ]"
-                    :key="flag.key"
-                    class="flex items-center gap-2"
+                <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                    @click="showProtocolOptions = !showProtocolOptions"
                   >
-                    <Switch :model-value="(form as any)[flag.key]" @update:model-value="(v: boolean) => (form as any)[flag.key] = v" />
-                    <Label class="text-xs">{{ flag.label }}</Label>
+                    <ChevronDown v-if="!showProtocolOptions" class="h-3.5 w-3.5" />
+                    <ChevronUp v-else class="h-3.5 w-3.5" />
+                    {{ tf('console.form.protocolOptions', '协议与模型高级选项') }}
+                  </button>
+                  <div v-if="showProtocolOptions" class="grid gap-4 lg:grid-cols-3">
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.reasoningParamStyle', 'Reasoning 参数风格') }}</Label>
+                      <Select v-model="form.reasoningParamStyle">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="item in reasoningParamStyleOptions" :key="item.value" :value="item.value">
+                            {{ item.label }}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label>{{ tf('console.form.textVerbosity', 'Text verbosity') }}</Label>
+                      <Select v-model="form.textVerbosity">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="item in textVerbosityOptions" :key="item.value || 'default'" :value="item.value">
+                            {{ item.label }}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label>Vision fallback model</Label>
+                      <Input v-model="form.visionFallbackModel" placeholder="mimo-v2.5" />
+                    </div>
+                    <div class="space-y-1.5 lg:col-span-3">
+                      <Label>No vision models（每行一个）</Label>
+                      <Textarea v-model="form.noVisionModelsText" rows="2" class="font-mono text-xs" />
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
 
-              <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
-                <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {{ tf('console.form.customHeaders', '自定义 Headers（JSON）') }}
-                </h4>
-                <Textarea v-model="form.customHeadersText" rows="4" class="font-mono text-xs" />
-              </section>
+                <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                    @click="showAdvanced = !showAdvanced"
+                  >
+                    <ChevronDown v-if="!showAdvanced" class="h-3.5 w-3.5" />
+                    <ChevronUp v-else class="h-3.5 w-3.5" />
+                    {{ tf('console.form.advancedFlags', '高级选项') }}
+                  </button>
+                  <div v-if="showAdvanced" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div
+                      v-for="flag in [
+                        { key: 'noVision', label: tf('console.form.noVision', '禁用视觉') },
+                        { key: 'passbackReasoningContent', label: tf('console.form.passbackReasoning', '回传推理内容') },
+                        { key: 'passbackThinkingBlocks', label: tf('console.form.passbackThinking', '回传思考块') },
+                        { key: 'fastMode', label: tf('console.form.fastMode', '快速模式') },
+                        { key: 'lowQuality', label: tf('console.form.lowQuality', '低质量标记') },
+                        { key: 'injectDummyThoughtSignature', label: tf('console.form.injectDummySignature', '注入假思考签名') },
+                        { key: 'stripThoughtSignature', label: tf('console.form.stripThoughtSignature', '移除思考签名') },
+                        { key: 'stripEmptyTextBlocks', label: tf('console.form.stripEmptyBlocks', '移除空文本块') },
+                        { key: 'normalizeSystemRoleToTopLevel', label: tf('console.form.normalizeSystem', '规范化系统角色') },
+                        { key: 'normalizeMetadataUserId', label: tf('console.form.normalizeUserId', '规范化用户 ID') },
+                        { key: 'normalizeNonstandardChatRoles', label: tf('console.form.normalizeChatRoles', '规范化 Chat 角色') },
+                        { key: 'autoBlacklistBalance', label: tf('console.form.autoBlacklist', '自动黑名单余额异常 Key') },
+                        { key: 'codexNativeToolPassthrough', label: tf('console.form.codexNativeTools', 'Codex 原生工具透传') },
+                        { key: 'codexToolCompat', label: tf('console.form.codexCompat', 'Codex 工具兼容') },
+                        { key: 'stripCodexClientTools', label: tf('console.form.stripCodexTools', '移除 Codex 客户端工具') },
+                      ]"
+                      :key="flag.key"
+                      class="flex items-center gap-2"
+                    >
+                      <Switch :model-value="(form as any)[flag.key]" @update:model-value="(v: boolean) => (form as any)[flag.key] = v" />
+                      <Label class="text-xs">{{ flag.label }}</Label>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {{ tf('console.form.customHeaders', '自定义 Headers（JSON）') }}
+                  </h4>
+                  <Textarea v-model="form.customHeadersText" rows="4" class="font-mono text-xs" />
+                </section>
+              </template>
             </form>
           </ScrollArea>
 

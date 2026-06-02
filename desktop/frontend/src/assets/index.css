@@ -39,7 +39,7 @@
   /* Dark theme overrides */
   --color-background: #080d19;
   --color-foreground: #f1f5f9;
-  --color-card: rgba(13, 20, 35, 0.45);
+  --color-card: rgba(13, 20, 35, 0.85);
   --color-card-foreground: #f1f5f9;
   --color-primary: #3b82f6;
   --color-primary-foreground: #ffffff;
@@ -53,7 +53,7 @@
   --color-destructive-foreground: #ffffff;
   --color-warning: #f59e0b;
   --color-warning-foreground: #ffffff;
-  --color-popover: #0f172a;
+  --color-popover: #1a2332;
   --color-popover-foreground: #f1f5f9;
   --color-border: rgba(148, 163, 184, 0.08);
   --color-input: rgba(148, 163, 184, 0.12);
