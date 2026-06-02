@@ -48,6 +48,7 @@ const { tf } = useLanguage()
 const { saveChannel, restoreApiKey } = useConsoleChannels()
 
 const isEditMode = computed(() => !!props.channel)
+const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
 const saving = ref(false)
 const restoringKey = ref('')
 const error = ref('')
@@ -1051,7 +1052,7 @@ function buildCurrentPayload() {
                 ? tf('console.form.save', '保存')
                 : tf('console.form.create', '创建')
               }}
-              <span class="ml-1.5 text-xs opacity-60">{{ isEditMode ? 'Enter' : '⌘ Enter' }}</span>
+              <span class="ml-1.5 text-xs opacity-60">{{ isEditMode ? 'Enter' : isMac ? '⌘ Enter' : 'Ctrl+Enter' }}</span>
             </Button>
           </div>
         </div>
