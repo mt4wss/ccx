@@ -121,89 +121,80 @@ watch(() => status.value.running, (running) => {
 
     <!-- 管理控制台主体 -->
     <div v-else class="flex-1 flex flex-col min-h-0">
-      <!-- 顶级 Tab：频道管理 / 会话管理 -->
-      <Tabs
-        :model-value="consoleTab"
-        class="flex-1 flex flex-col min-h-0"
-        @update:model-value="updateConsoleTab"
-      >
-        <div class="flex items-center justify-between shrink-0 mb-4">
-          <TabsList>
-            <TabsTrigger value="channels">
+      <!-- 顶部紧凑工具栏：顶级 Tab + 协议子 Tab + 操作按钮，一行融合 -->
+      <div class="shrink-0 border-b border-border bg-card/50 px-2 py-1.5 flex items-center gap-2">
+        <!-- 顶级 Tab：Channels / Conversations -->
+        <Tabs
+          :model-value="consoleTab"
+          class="inline-flex"
+          @update:model-value="updateConsoleTab"
+        >
+          <TabsList class="h-7 p-0.5">
+            <TabsTrigger value="channels" class="px-2.5 py-0.5 text-xs">
               {{ tf('console.channelsTab', 'Channels') }}
             </TabsTrigger>
-            <TabsTrigger value="conversations">
+            <TabsTrigger value="conversations" class="px-2.5 py-0.5 text-xs">
               {{ tf('console.conversationsTab', 'Conversations') }}
             </TabsTrigger>
           </TabsList>
+        </Tabs>
 
-          <div class="flex items-center gap-2">
-            <Button variant="outline" size="sm" @click="openInBrowser">
-              <Globe class="w-3.5 h-3.5 mr-1.5" />
-              {{ t('webui.openInBrowser') }}
-            </Button>
-          </div>
+        <!-- 分隔线 -->
+        <div v-if="consoleTab === 'channels'" class="w-px h-4 bg-border" />
+
+        <!-- 协议子 Tab（仅 channels 面板显示） -->
+        <Tabs
+          v-if="consoleTab === 'channels'"
+          :model-value="activeTab"
+          class="inline-flex"
+          @update:model-value="updateProtocolTab"
+        >
+          <TabsList class="h-7 p-0.5">
+            <TabsTrigger
+              v-for="tab in protocolTabs"
+              :key="tab.value"
+              :value="tab.value"
+              class="px-2 py-0.5 text-xs"
+            >
+              {{ tab.label }}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <!-- 弹性占位 -->
+        <div class="flex-1" />
+
+        <!-- 右侧操作按钮 -->
+        <Button v-if="consoleTab === 'channels'" variant="outline" size="sm" class="h-7 text-xs" @click="showQuickAdd = true">
+          <Sparkles class="h-3 w-3" />
+          {{ tf('console.quickAdd', 'Quick Add') }}
+        </Button>
+        <Button variant="outline" size="sm" class="h-7 text-xs" @click="openInBrowser">
+          <Globe class="h-3 w-3" />
+          {{ t('webui.openInBrowser') }}
+        </Button>
+      </div>
+
+      <!-- 内容区域 -->
+      <div class="flex-1 min-h-0">
+        <!-- 频道管理面板 -->
+        <div v-show="consoleTab === 'channels'" class="h-full">
+          <ScrollArea class="h-full">
+            <div class="p-3">
+              <ChannelManager :type="activeTab" />
+            </div>
+          </ScrollArea>
         </div>
 
-        <!-- 频道管理面板 -->
-        <TabsContent value="channels" class="flex-1 min-h-0 mt-0">
-          <div class="h-full flex flex-col">
-            <div class="mb-3 flex items-center justify-between border border-border bg-card/70 px-3 py-2">
-              <div>
-                <div class="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                  {{ tf('console.nativeChannelsEyebrow', 'Native channel orchestration') }}
-                </div>
-                <div class="text-sm font-semibold text-foreground">
-                  {{ tf('console.nativeChannelsTitle', 'WebUI-aligned protocol workspace') }}
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <Button variant="outline" size="sm" @click="showQuickAdd = true">
-                  <Sparkles class="h-3.5 w-3.5" />
-                  {{ tf('console.quickAdd', 'Quick Add') }}
-                </Button>
-                <Button variant="outline" size="sm" @click="openInBrowser">
-                  <Globe class="h-3.5 w-3.5" />
-                  {{ t('webui.openInBrowser') }}
-                </Button>
-              </div>
-            </div>
-            <!-- 协议子 Tab -->
-            <Tabs
-              :model-value="activeTab"
-              class="flex-1 flex flex-col min-h-0"
-              @update:model-value="updateProtocolTab"
-            >
-              <TabsList class="shrink-0 mb-3 border border-border bg-card/80 p-1 rounded-none">
-                <TabsTrigger
-                  v-for="tab in protocolTabs"
-                  :key="tab.value"
-                  :value="tab.value"
-                >
-                  {{ tab.label }}
-                </TabsTrigger>
-              </TabsList>
-
-              <div class="flex-1 min-h-0">
-                <ScrollArea class="h-full">
-                  <div class="pr-4">
-                    <ChannelManager :type="activeTab" />
-                  </div>
-                </ScrollArea>
-              </div>
-            </Tabs>
-          </div>
-        </TabsContent>
-
         <!-- 会话管理面板 -->
-        <TabsContent value="conversations" class="flex-1 min-h-0 mt-0">
+        <div v-show="consoleTab === 'conversations'" class="h-full">
           <ScrollArea class="h-full">
-            <div class="pr-4">
+            <div class="p-3">
               <ConversationDashboard />
             </div>
           </ScrollArea>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       <Teleport to="body">
         <Transition name="fade">
