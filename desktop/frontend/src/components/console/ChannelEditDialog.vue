@@ -713,6 +713,16 @@ const fetchingModels = ref(false)
 const targetModelOptions = ref<string[]>([])
 const fetchedModelsError = ref('')
 
+// ── Source 模型预置列表（按协议类型） ──
+const sourceModelOptions = computed(() => {
+  const st = form.serviceType
+  if (st === 'claude') return ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-5', 'claude-sonnet-4-5']
+  if (st === 'gemini') return ['gemini-3.1-pro-preview', 'gemini-3.1-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash']
+  if (st === 'responses') return ['gpt-5', 'gpt-mini', 'codex-auto-review', 'o3', 'o4-mini']
+  if (st === 'openai') return ['gpt-5', 'gpt-5.4', 'gpt-5.3', 'gpt-5.2', 'gpt-4.1', 'gpt-4.1-mini', 'o3', 'o4-mini']
+  return ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'gpt-5', 'gemini-2.5-pro']
+})
+
 async function fetchTargetModels() {
   if (!props.channel) return
   if (!form.baseUrl.trim() || getSubmitApiKeys().length === 0) {
@@ -1113,7 +1123,8 @@ function buildCurrentPayload() {
                     </div>
                     <p v-if="fetchedModelsError" class="text-[10px] text-destructive">{{ fetchedModelsError }}</p>
                     <div v-for="(row, index) in modelMappingRows" :key="row.id" class="flex items-center gap-2 border border-border bg-background/60 px-2 py-1.5 text-xs">
-                      <Input v-model="row.source" class="h-7 flex-1 font-mono text-xs" placeholder="source-model" />
+                      <Input v-model="row.source" class="h-7 flex-1 font-mono text-xs" placeholder="source-model" :list="`source-models-${index}`" />
+                      <datalist :id="`source-models-${index}`"><option v-for="m in sourceModelOptions" :key="m" :value="m" /></datalist>
                       <ArrowRight class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <Input v-model="row.target" class="h-7 flex-1 font-mono text-xs" placeholder="target-model" :list="targetModelOptions.length ? `target-models-${index}` : undefined" />
                       <datalist v-if="targetModelOptions.length" :id="`target-models-${index}`">
@@ -1134,7 +1145,8 @@ function buildCurrentPayload() {
                       </Button>
                     </div>
                     <div class="flex items-center gap-2">
-                      <Input v-model="newModelMapping.source" class="h-7 flex-1 font-mono text-xs" placeholder="source" @keydown.enter.prevent="addModelMappingRow" />
+                      <Input v-model="newModelMapping.source" class="h-7 flex-1 font-mono text-xs" placeholder="source" list="source-models-new" @keydown.enter.prevent="addModelMappingRow" />
+                      <datalist id="source-models-new"><option v-for="m in sourceModelOptions" :key="m" :value="m" /></datalist>
                       <ArrowRight class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <Input v-model="newModelMapping.target" class="h-7 flex-1 font-mono text-xs" placeholder="target" :list="targetModelOptions.length ? 'target-models-new' : undefined" @keydown.enter.prevent="addModelMappingRow" />
                       <datalist v-if="targetModelOptions.length" id="target-models-new">
