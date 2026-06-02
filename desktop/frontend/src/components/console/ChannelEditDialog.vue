@@ -1000,16 +1000,9 @@ function buildCurrentPayload() {
                     <Label>{{ tf('console.form.description', '描述') }}</Label>
                     <Textarea v-model="form.description" rows="2" />
                   </div>
-                  <div class="grid grid-cols-2 gap-3">
-                    <div class="space-y-1.5">
-                      <Label>Website</Label>
-                      <Input v-model="form.website" placeholder="https://example.com" />
-                    </div>
-                    <div class="space-y-1.5">
-                      <Label>{{ tf('console.form.requestTimeoutMs', '请求超时（ms）') }}</Label>
-                      <Input v-model="form.requestTimeoutMs" type="number" placeholder="60000" :class="{ 'border-destructive': errors.requestTimeoutMs }" />
-                      <p v-if="errors.requestTimeoutMs" class="text-[10px] text-destructive">{{ errors.requestTimeoutMs }}</p>
-                    </div>
+                  <div class="space-y-1.5">
+                    <Label>Website</Label>
+                    <Input v-model="form.website" placeholder="https://example.com" />
                   </div>
                 </section>
 
@@ -1253,6 +1246,7 @@ function buildCurrentPayload() {
                         <div class="flex items-center gap-2"><Switch v-model="form.insecureSkipVerify" /><Label class="text-xs">{{ tf('console.form.insecureSkipVerify', '跳过 TLS 验证') }}</Label></div>
                         <div class="space-y-1"><Label class="text-[10px]">{{ tf('console.form.proxyUrl', '代理 URL') }}</Label><Input v-model="form.proxyUrl" class="h-7 text-xs" placeholder="socks5://..." /></div>
                         <div class="space-y-1"><Label class="text-[10px]">{{ tf('console.form.routePrefix', '路由前缀') }}</Label><Input v-model="form.routePrefix" class="h-7 text-xs" placeholder="kimi" /></div>
+                        <div class="space-y-1"><Label class="text-[10px]">{{ tf('console.form.requestTimeoutMs', '请求超时（ms）') }}</Label><Input v-model="form.requestTimeoutMs" type="number" class="h-7 text-xs" placeholder="60000" :class="{ 'border-destructive': errors.requestTimeoutMs }" /><p v-if="errors.requestTimeoutMs" class="text-[10px] text-destructive">{{ errors.requestTimeoutMs }}</p></div>
                       </div>
                     </div>
                   </div>
