@@ -443,6 +443,7 @@ export type MessageKey =
   | 'console.form.historicalKeys'
   | 'addChannel.oneClickSetup'
   | 'addChannel.expectedRequest'
+  | 'console.form.apiKeyRequired'
   | 'console.form.reasoningEffort'
   | 'console.form.noVisionModels'
   | 'console.form.visionFallbackModel'
@@ -996,6 +997,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.historicalKeys': 'historical keys recorded',
     'addChannel.oneClickSetup': 'One-click setup',
     'addChannel.expectedRequest': 'Expected request',
+    'console.form.apiKeyRequired': 'At least one API Key required',
     'console.form.reasoningEffort': 'Reasoning effort',
     'console.form.noVisionModels': 'No vision models (one per line)',
     'console.form.visionFallbackModel': 'Vision fallback model',
@@ -1546,6 +1548,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.historicalKeys': '历史密钥记录',
     'addChannel.oneClickSetup': '一键配置',
     'addChannel.expectedRequest': '预期请求',
+    'console.form.apiKeyRequired': '至少需要一个 API Key',
     'console.form.reasoningEffort': '思考强度',
     'console.form.noVisionModels': '无视觉模型（每行一个）',
     'console.form.visionFallbackModel': '视觉回退模型',

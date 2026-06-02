@@ -253,11 +253,21 @@ watch(() => props.channel, (ch) => {
   if (ch) populateFromChannel(ch)
 }, { immediate: true })
 
+// API Key 是否满足必填：现有 + 新增；编辑模式下有可恢复 disabled key 也算
+const hasConfigurableKeys = computed(() => {
+  if (existingApiKeys.value.length > 0) return true
+  if (parseLines(newApiKeysText.value).length > 0) return true
+  if (isEditMode.value && visibleDisabledKeys.value.length > 0) return true
+  return false
+})
+
 const errors = computed(() => {
   const errs: Record<string, string> = {}
   if (!form.name.trim()) errs.name = tf('console.form.nameRequired', '渠道名称必填')
   if (!form.serviceType) errs.serviceType = tf('console.form.serviceTypeRequired', '请选择服务类型')
   if (!form.baseUrl.trim() && !form.baseUrlsText.trim()) errs.baseUrl = tf('console.form.baseUrlRequired', '至少需要一个 Base URL')
+  // API Key 必填：现有 key + 新增 key，编辑模式下可恢复的 disabled key 也算
+  if (!hasConfigurableKeys.value) errs.apiKeys = tf('console.form.apiKeyRequired', '至少需要一个 API Key')
   if (String(form.requestTimeoutMs).trim()) {
     const timeout = Number(form.requestTimeoutMs)
     if (!Number.isInteger(timeout) || timeout <= 0) {
@@ -1087,15 +1097,16 @@ function buildCurrentPayload() {
                   </div>
                 </section>
 
-                <section class="space-y-3 border border-border bg-background/40 p-4">
-                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {{ tf('console.form.authentication', '认证') }}
+                <section class="space-y-3 border bg-background/40 p-4" :class="errors.apiKeys ? 'border-destructive/40' : 'border-border'">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider" :class="errors.apiKeys ? 'text-destructive' : 'text-muted-foreground'">
+                    {{ tf('console.form.authentication', '认证') }} *
                   </h4>
                   <div class="space-y-2">
                     <div class="flex items-center justify-between gap-2">
                       <Label>{{ tf('console.form.apiKeys', 'API Keys') }}</Label>
                       <span class="text-[10px] text-muted-foreground">{{ existingApiKeys.length }} keys</span>
                     </div>
+                    <p v-if="errors.apiKeys" class="text-[10px] text-destructive">{{ errors.apiKeys }}</p>
                     <div v-if="existingApiKeys.length" class="space-y-1.5">
                       <div
                         v-for="(key, index) in existingApiKeys"
