@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, RefreshCw, Search, Layers, Archive } from 'lucide-vue-next'
+import { Plus, RefreshCw, Search, Layers, Archive, Loader2 } from 'lucide-vue-next'
 import { useConsoleChannels } from '@/composables/useConsoleChannels'
 import { useLanguage } from '@/composables/useLanguage'
 import ChannelCard from '@/components/console/ChannelCard.vue'
@@ -361,7 +361,13 @@ onMounted(() => {
       </p>
     </div>
 
-    <div v-else class="space-y-4">
+    <div v-else class="relative space-y-4" :class="{ 'pointer-events-none select-none': actionLoading }">
+      <div v-if="actionLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
+        <div class="flex items-center gap-2 border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+          <Loader2 class="h-3.5 w-3.5 animate-spin" />
+          {{ tf('console.actions.deleting', '正在删除...') }}
+        </div>
+      </div>
       <section class="border border-border bg-card/50">
         <div class="flex items-center justify-between border-b border-border bg-secondary/40 px-3 py-2">
           <div class="flex items-center gap-2">
