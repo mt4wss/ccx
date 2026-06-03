@@ -9,10 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   AlertCircle,
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   ClipboardPaste,
   Copy,
   Eye,
@@ -22,7 +21,6 @@ import {
   Plus,
   RotateCcw,
   Trash2,
-  Wand2,
   X,
   Zap,
 } from 'lucide-vue-next'
@@ -54,8 +52,6 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPod|iPhon
 const saving = ref(false)
 const restoringKey = ref('')
 const error = ref('')
-const showAdvanced = ref(false)
-const showProtocolOptions = ref(false)
 const quickInput = ref('')
 const existingApiKeys = ref<string[]>([])
 const newApiKeysText = ref('')
@@ -194,8 +190,6 @@ function resetForm() {
   modelMappingRows.value = []
   headerRows.value = []
   error.value = ''
-  showAdvanced.value = false
-  showProtocolOptions.value = false
 }
 
 function defaultServiceTypeForChannel() {
@@ -1307,13 +1301,11 @@ function buildCurrentPayload() {
                 </section>
 
                 <section class="space-y-3 border border-border bg-background/40 p-4 lg:col-span-2">
-                  <button type="button" class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground" @click="showAdvanced = !showAdvanced">
-                    <ChevronDown v-if="!showAdvanced" class="h-3.5 w-3.5" />
-                    <ChevronUp v-else class="h-3.5 w-3.5" />
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {{ tf('console.form.advancedFlags', '高级选项') }}
-                  </button>
+                  </h4>
 
-                  <div v-if="showAdvanced" class="space-y-4">
+                  <div class="space-y-4">
                     <!-- Vision -->
                     <div class="space-y-2">
                       <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Vision</div>
