@@ -1,0 +1,150 @@
+package messages
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/BenedictKing/ccx/internal/config"
+)
+
+// TestMessagesHandler_NormalizeSystemRoleToTopLevel 验证：messages 渠道开启
+// NormalizeSystemRoleToTopLevel 后，无论上游 ServiceType 为何，转发前都会把 messages
+// 数组里的 system 角色抽回顶层 system 字段。归一化发生在 provider 分发之前的统一入口，
+// 因此对 openai/gemini/claude 等所有上游类型一致生效。
+func TestMessagesHandler_NormalizeSystemRoleToTopLevel(t *testing.T) {
+	const reqBody = `{"model":"test-model","system":"base prompt","messages":[{"role":"system","content":"you are helpful"},{"role":"user","content":[{"type":"text","text":"hello"}]}]}`
+
+	tests := []struct {
+		name         string
+		serviceType  string
+		enabled      bool
+		responseBody string
+		assertReq    func(t *testing.T, captured []byte)
+	}{
+		{
+			name:         "openai_upstream_enabled_extracts_system",
+			serviceType:  "openai",
+			enabled:      true,
+			responseBody: `{"id":"chatcmpl","choices":[{"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`,
+			assertReq: func(t *testing.T, captured []byte) {
+				// OpenAI provider 将顶层 system 转为 messages[0].role=system；
+				// 归一化后顶层应合并 base prompt + 抽取出的 system 文本。
+				var req map[string]interface{}
+				if err := json.Unmarshal(captured, &req); err != nil {
+					t.Fatalf("unmarshal upstream request: %v", err)
+				}
+				msgs, ok := req["messages"].([]interface{})
+				if !ok || len(msgs) == 0 {
+					t.Fatalf("messages shape invalid: %s", string(captured))
+				}
+				// 上游收到的 messages 中不应再出现独立的 system 角色消息内容 "you are helpful"
+				// 作为非首条系统消息；它应已被合并进顶层 system，再由 OpenAI provider 放到首条 system。
+				first, _ := msgs[0].(map[string]interface{})
+				if role, _ := first["role"].(string); role != "system" {
+					t.Fatalf("expected first message to be system, got %v; body=%s", role, string(captured))
+				}
+				sysText, _ := first["content"].(string)
+				if !strings.Contains(sysText, "base prompt") || !strings.Contains(sysText, "you are helpful") {
+					t.Fatalf("merged system text missing parts: %q; body=%s", sysText, string(captured))
+				}
+				// 后续消息里不应再有 role=system
+				for i := 1; i < len(msgs); i++ {
+					m, _ := msgs[i].(map[string]interface{})
+					if role, _ := m["role"].(string); role == "system" {
+						t.Fatalf("unexpected leftover system role at index %d; body=%s", i, string(captured))
+					}
+				}
+			},
+		},
+		{
+			name:         "claude_upstream_enabled_extracts_system",
+			serviceType:  "claude",
+			enabled:      true,
+			responseBody: `{"id":"msg","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`,
+			assertReq: func(t *testing.T, captured []byte) {
+				var req map[string]interface{}
+				if err := json.Unmarshal(captured, &req); err != nil {
+					t.Fatalf("unmarshal upstream request: %v", err)
+				}
+				// claude 直传：顶层 system 应合并两段文本
+				sysText, _ := req["system"].(string)
+				if !strings.Contains(sysText, "base prompt") || !strings.Contains(sysText, "you are helpful") {
+					t.Fatalf("merged top-level system missing parts: %q; body=%s", sysText, string(captured))
+				}
+				msgs, ok := req["messages"].([]interface{})
+				if !ok {
+					t.Fatalf("messages shape invalid: %s", string(captured))
+				}
+				for _, raw := range msgs {
+					m, _ := raw.(map[string]interface{})
+					if role, _ := m["role"].(string); role == "system" {
+						t.Fatalf("system role should be removed from messages; body=%s", string(captured))
+					}
+				}
+			},
+		},
+		{
+			name:         "claude_upstream_disabled_keeps_system_role",
+			serviceType:  "claude",
+			enabled:      false,
+			responseBody: `{"id":"msg","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`,
+			assertReq: func(t *testing.T, captured []byte) {
+				var req map[string]interface{}
+				if err := json.Unmarshal(captured, &req); err != nil {
+					t.Fatalf("unmarshal upstream request: %v", err)
+				}
+				msgs, ok := req["messages"].([]interface{})
+				if !ok {
+					t.Fatalf("messages shape invalid: %s", string(captured))
+				}
+				found := false
+				for _, raw := range msgs {
+					m, _ := raw.(map[string]interface{})
+					if role, _ := m["role"].(string); role == "system" {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Fatalf("disabled switch should keep system role in messages; body=%s", string(captured))
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var captured []byte
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					t.Fatalf("read upstream request: %v", err)
+				}
+				captured = body
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(tt.responseBody))
+			}))
+			defer upstream.Close()
+
+			router := newMessagesTestRouter(t, config.UpstreamConfig{
+				Name:                          tt.name,
+				BaseURL:                       upstream.URL,
+				APIKeys:                       []string{"sk-test"},
+				ServiceType:                   tt.serviceType,
+				Status:                        "active",
+				NormalizeSystemRoleToTopLevel: tt.enabled,
+			})
+
+			w := performMessagesHandlerRequest(t, router, reqBody)
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
+			}
+			tt.assertReq(t, captured)
+		})
+	}
+}

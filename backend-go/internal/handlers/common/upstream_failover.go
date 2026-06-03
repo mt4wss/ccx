@@ -12,6 +12,7 @@ import (
 
 	"github.com/BenedictKing/ccx/internal/config"
 	"github.com/BenedictKing/ccx/internal/metrics"
+	"github.com/BenedictKing/ccx/internal/providers"
 	"github.com/BenedictKing/ccx/internal/scheduler"
 	"github.com/BenedictKing/ccx/internal/types"
 	"github.com/BenedictKing/ccx/internal/utils"
@@ -149,7 +150,13 @@ func TryUpstreamWithAllKeys(
 		for attempt := 0; attempt < maxRetries; attempt++ {
 			attemptBody := requestBody
 			if shouldNormalizeMetadataUserID(kind, upstream) {
-				attemptBody = NormalizeMetadataUserID(requestBody)
+				attemptBody = NormalizeMetadataUserID(attemptBody)
+			}
+			// Claude Messages 入口：将 messages 中的 system 角色抽回顶层 system 字段。
+			// 在 provider 分发前统一处理，使所有上游类型（claude/openai/gemini/responses）均生效，
+			// 兼容 Opus 4.8 等将 system 作为消息 role 发送、而旧上游仅支持 user/assistant 的情况。
+			if kind == scheduler.ChannelKindMessages && upstream.NormalizeSystemRoleToTopLevel {
+				attemptBody = providers.NormalizeSystemRoleToTopLevel(attemptBody)
 			}
 			RestoreRequestBody(c, attemptBody)
 			c.Set("requestBodyBytes", attemptBody)

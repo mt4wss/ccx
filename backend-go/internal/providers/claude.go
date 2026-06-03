@@ -610,9 +610,9 @@ func (p *ClaudeProvider) ConvertToProviderRequest(c *gin.Context, upstream *conf
 		}
 	}
 
-	if upstream.NormalizeSystemRoleToTopLevel {
-		bodyBytes = NormalizeSystemRoleToTopLevel(bodyBytes)
-	}
+	// 注意：NormalizeSystemRoleToTopLevel（抽取 system 角色到顶层）已上移到
+	// handlers/common 的 failover 统一入口处理，使所有上游类型均生效，此处不再重复执行。
+
 	// 构建目标URL
 	// 智能拼接逻辑：
 	// 1. 如果 baseURL 以 # 结尾，跳过自动添加 /v1

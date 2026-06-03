@@ -1423,7 +1423,7 @@ function buildCurrentPayload() {
                             <p class="text-[10px] leading-4 text-muted-foreground">{{ tf('console.form.stripEmptyBlocksHint', '转发前移除裸空 text content block，兼容严格拒绝 Claude Code tool_use 占位块的 Claude 协议上游') }}</p>
                           </div>
                         </div>
-                        <div v-if="form.serviceType === 'claude' && channelType === 'messages'" class="flex flex-row-reverse items-center justify-between gap-3">
+                        <div v-if="channelType === 'messages'" class="flex flex-row-reverse items-center justify-between gap-3">
                           <Switch v-model="form.normalizeSystemRoleToTopLevel" class="shrink-0" />
                           <div class="min-w-0 space-y-0.5">
                             <Label class="text-xs">{{ tf('console.form.normalizeSystem', '规范化系统角色') }}</Label>
