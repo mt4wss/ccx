@@ -1,7 +1,7 @@
 ---
 name: version-bump
 description: 升级项目版本号并提交git，支持patch/minor/major版本升级或指定具体版本号，自动从git log生成CHANGELOG
-version: 1.4.0
+version: 1.5.0
 author: https://github.com/BenedictKing/ccx/
 allowed-tools: Bash, Read, Write, Edit
 context: fork
@@ -86,6 +86,21 @@ echo "v{新版本号}" > VERSION
 4. 追加/移动完毕后，若全部已有记录则无需改动
 
 > ⚠️ **错位处理必须优先于补全**：先扫描 `[v{上一个版本}]` 区块是否有属于本次 v{新版本} 的提交，有则剪切移动，再对剩余遗漏的提交生成新条目。避免同一个提交在 CHANGELOG 中出现两次。
+
+**覆盖率校验（必须通过）：**
+
+校验补全完成后，必须执行以下命令确认无遗漏：
+
+```bash
+# 获取本版本区间所有有效 commit 数量（排除 Merge 和 bump version）
+TOTAL=$(git log v{上一个版本}..HEAD --pretty=%s | grep -cvE "^(Merge |chore: bump version)")
+# 统计 CHANGELOG 中本版本的条目数量（按 "- **" 开头的行计数）
+RECORDED=$(sed -n '/^## \[v{新版本号}\]/,/^## \[/p' CHANGELOG.md | grep -c "^- \*\*")
+echo "有效提交: ${TOTAL} 条, 已记录: ${RECORDED} 条"
+```
+
+- 如果 `已记录 < 有效提交`：**必须回溯补全后才能继续**，不允许跳过
+- 允许 `已记录 >= 有效提交`（某些提交可能被合并为一条，或多条关联 commit 归为一个条目）
 
 **按 type 分组规则：**
 
