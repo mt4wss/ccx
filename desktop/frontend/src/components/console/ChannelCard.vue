@@ -90,7 +90,7 @@ const serviceTypeClass = computed(() => {
 const statusConfig = computed(() => {
   if (isDisabled.value) {
     return {
-      label: tf('console.channelStatus.disabled', 'Disabled'),
+      label: tf('console.channelStatus.disabled', 'Standby'),
       icon: XCircle,
       class: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
       dot: 'bg-rose-500',
@@ -330,7 +330,7 @@ async function copyChannelInfo() {
             </DropdownMenuItem>
             <DropdownMenuItem v-if="!isDisabled" @click="emit('disable')">
               <Ban class="h-4 w-4" />
-              {{ tf('console.actions.disable', 'Disable') }}
+              {{ tf('console.actions.disable', 'Move to Standby') }}
             </DropdownMenuItem>
           </DropdownMenuGroup>
 

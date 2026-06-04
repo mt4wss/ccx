@@ -424,7 +424,7 @@ onMounted(() => {
         <div class="flex items-center gap-2 border-b border-border px-3 py-2">
           <Archive class="h-4 w-4 text-muted-foreground" />
           <span class="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            {{ tf('console.pool.inactive', 'Inactive Pool') }}
+            {{ tf('console.pool.inactive', 'Standby Pool') }}
           </span>
         </div>
         <div class="divide-y divide-border">
