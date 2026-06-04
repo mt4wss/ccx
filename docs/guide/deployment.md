@@ -3,18 +3,18 @@
 ## Docker Compose
 
 ```yaml
-version: '3.8'
 services:
   ccx:
-    image: ghcr.io/benedictking/ccx:latest
+    image: crpi-i19l8zl0ugidq97v.cn-hangzhou.personal.cr.aliyuncs.com/bene/ccx:latest
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
-      - ./config:/app/.config
+      - ./.config:/app/.config
     environment:
-      - PROXY_ACCESS_KEY=your-proxy-key
-      - ADMIN_ACCESS_KEY=your-admin-key
       - ENV=production
+      - PROXY_ACCESS_KEY=your-proxy-key
+      # 管理 API 独立密钥（可选，未设置时回退到 PROXY_ACCESS_KEY）
+      # - ADMIN_ACCESS_KEY=your-admin-secret-key
     restart: unless-stopped
 ```
 
@@ -32,7 +32,8 @@ Type=simple
 ExecStart=/opt/ccx/ccx
 WorkingDirectory=/opt/ccx
 Environment=PROXY_ACCESS_KEY=your-proxy-key
-Environment=ADMIN_ACCESS_KEY=your-admin-key
+# 管理 API 独立密钥（可选，未设置时回退到 PROXY_ACCESS_KEY）
+#Environment=ADMIN_ACCESS_KEY=your-admin-secret-key
 Restart=always
 RestartSec=5
 

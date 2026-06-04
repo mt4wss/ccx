@@ -10,10 +10,9 @@
 docker run -d \
   --name ccx \
   -p 3000:3000 \
-  -v ./config:/app/.config \
+  -v ./.config:/app/.config \
   -e PROXY_ACCESS_KEY=your-proxy-key \
-  -e ADMIN_ACCESS_KEY=your-admin-key \
-  ghcr.io/benedictking/ccx:latest
+  crpi-i19l8zl0ugidq97v.cn-hangzhou.personal.cr.aliyuncs.com/bene/ccx:latest
 ```
 
 ### 二进制部署
@@ -22,7 +21,6 @@ docker run -d \
 
 ```bash
 export PROXY_ACCESS_KEY=your-proxy-key
-export ADMIN_ACCESS_KEY=your-admin-key
 ./ccx
 ```
 
