@@ -43,7 +43,8 @@ func detectImageInBody(body []byte) bool {
 			block.Get("type").String() == "input_image"
 	}
 
-	hasImageInContent := func(content gjson.Result) bool {
+	var hasImageInContent func(gjson.Result) bool
+	hasImageInContent = func(content gjson.Result) bool {
 		if !content.IsArray() {
 			return false
 		}
@@ -51,11 +52,10 @@ func detectImageInBody(body []byte) bool {
 			if hasImageBlock(block) {
 				return true
 			}
-			// Claude tool_result 等 content block 可继续嵌套一层 content 数组，图片可能出现在其中。
-			for _, nested := range block.Get("content").Array() {
-				if hasImageBlock(nested) {
-					return true
-				}
+			// 递归遍历任意深度的 content 嵌套
+			// Claude Messages: tool_result.content[*] 可继续嵌套 tool_result → content → image
+			if hasImageInContent(block.Get("content")) {
+				return true
 			}
 		}
 		return false

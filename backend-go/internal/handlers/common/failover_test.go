@@ -116,6 +116,40 @@ func TestClassifyMessage(t *testing.T) {
 	}
 }
 
+// TestClassifyMessageCapabilityMismatch 测试能力不匹配类错误的消息分类
+func TestClassifyMessageCapabilityMismatch(t *testing.T) {
+	tests := []struct {
+		name         string
+		message      string
+		wantFailover bool
+		wantQuota    bool
+	}{
+		// 能力不匹配 (应 failover)
+		{"mimo multimodal error", "Multimodal data is corrupted or cannot be processed.", true, false},
+		{"unsupported image", "Image input is not supported by this model", true, false},
+		{"vision not supported", "Vision capability is not supported", true, false},
+		{"cannot process image", "This model cannot process images", true, false},
+		{"中文-无法处理", "该模型无法处理多模态输入", true, false},
+		{"中文-不支持", "当前模型不支持图片输入", true, false},
+
+		// 不应误判为能力不匹配 (原有测试覆盖)
+		{"normal validation", "Field 'name' is required", false, false},
+		{"schema error", "Invalid value: 'input_text'", false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFailover, gotQuota := classifyMessage(tt.message)
+			if gotFailover != tt.wantFailover {
+				t.Errorf("classifyMessage(%q) failover = %v, want %v", tt.message, gotFailover, tt.wantFailover)
+			}
+			if gotQuota != tt.wantQuota {
+				t.Errorf("classifyMessage(%q) quota = %v, want %v", tt.message, gotQuota, tt.wantQuota)
+			}
+		})
+	}
+}
+
 // TestClassifyErrorType 测试基于错误类型的分类
 func TestClassifyErrorType(t *testing.T) {
 	tests := []struct {

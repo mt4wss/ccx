@@ -301,6 +301,20 @@ func classifyMessage(msg string) (bool, bool) {
 		}
 	}
 
+	// 能力不匹配关键词 (failover + 非 quota)
+	// 网关路由决策失误导致请求发到了不支持该能力的上游渠道
+	// 例如: 不支持视觉的渠道收到含图片的请求，换渠道可能成功
+	capabilityKeywords := []string{
+		"multimodal", "vision",
+		"image", "unsupported", "not supported",
+		"cannot be processed", "无法处理", "不支持",
+	}
+	for _, keyword := range capabilityKeywords {
+		if strings.Contains(msgLower, keyword) {
+			return true, false
+		}
+	}
+
 	return false, false
 }
 

@@ -47,6 +47,17 @@ func TestHasImageContent_ClaudeMessages(t *testing.T) {
 			body:     `{"messages":[{"role":"user","content":[{"type":"tool_result","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"abc"}}]}]}]}`,
 			expected: true,
 		},
+		{
+			name: "claude deeply nested image (tool_result → content → tool_result → content → image)",
+			body: `{"messages":[{"role":"user","content":[
+				{"type":"tool_result","content":[
+					{"type":"tool_result","content":[
+						{"type":"image","source":{"type":"base64","media_type":"image/png","data":"abc"}}
+					]}
+				]}
+			]}]}`,
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
