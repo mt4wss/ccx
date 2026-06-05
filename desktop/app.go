@@ -21,7 +21,6 @@ import (
 	"github.com/BenedictKing/ccx/desktop/internal/uipreferences"
 	"github.com/pkg/browser"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 type DesktopService struct {
@@ -30,7 +29,6 @@ type DesktopService struct {
 	app           *application.App
 	mainWindow    application.Window
 	versionInfo   VersionInfo
-	notifications *notifications.NotificationService
 }
 
 type VersionInfo struct {
@@ -78,28 +76,6 @@ func (s *DesktopService) setVersion(v VersionInfo) {
 
 func (s *DesktopService) isStoreDistribution() bool {
 	return strings.EqualFold(s.versionInfo.Distribution, "store")
-}
-
-func (s *DesktopService) setNotifications(svc *notifications.NotificationService) {
-	s.notifications = svc
-}
-
-// Notify 推送一条系统通知。失败仅记录日志，不向上抛错。
-//
-//wails:ignore
-func (s *DesktopService) Notify(title, body string) {
-	if s.notifications == nil {
-		return
-	}
-	id := fmt.Sprintf("ccx-%d", time.Now().UnixNano())
-	err := s.notifications.SendNotification(notifications.NotificationOptions{
-		ID:    id,
-		Title: title,
-		Body:  body,
-	})
-	if err != nil {
-		log.Printf("[Desktop-Notify] 推送通知失败: %v", err)
-	}
 }
 
 // CopyText 把文本写入系统剪贴板。

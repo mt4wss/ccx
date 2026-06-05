@@ -19,7 +19,6 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/dock"
-	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	updaterGithub "github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
@@ -83,8 +82,6 @@ func run() error {
 	})
 	log.Printf("[Desktop-Boot] desktop service initialized")
 	dockService := dock.New()
-	notificationService := notifications.New()
-	desktopService.setNotifications(notificationService)
 
 	log.Printf("[Desktop-Boot] creating Wails application")
 	app := application.New(application.Options{
@@ -93,7 +90,6 @@ func run() error {
 		Services: []application.Service{
 			application.NewService(desktopService),
 			application.NewService(dockService),
-			application.NewService(notificationService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -104,26 +100,6 @@ func run() error {
 	})
 	log.Printf("[Desktop-Boot] Wails application created")
 	desktopService.setApp(app)
-
-	// macOS 首启请求通知权限（系统自身记忆已授权状态，不会反复弹窗）
-	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-		if runtime.GOOS != "darwin" {
-			return
-		}
-		go func() {
-			granted, err := notificationService.CheckNotificationAuthorization()
-			if err != nil {
-				log.Printf("[Desktop-Notify] 检查通知授权失败: %v", err)
-				return
-			}
-			if granted {
-				return
-			}
-			if _, err := notificationService.RequestNotificationAuthorization(); err != nil {
-				log.Printf("[Desktop-Notify] 请求通知授权失败: %v", err)
-			}
-		}()
-	})
 
 	// 应用持久化窗口状态（如存在），否则回退到默认 Center。
 	// X/Y 仅在 InitialPosition=WindowXY 时生效（go doc 确认）。
@@ -265,7 +241,6 @@ func run() error {
 			if err := fn(); err != nil {
 				log.Printf("[Desktop-Tray] %s 失败: %v", label, err)
 				app.Event.Emit("desktop:tray-error", fmt.Sprintf("%s 失败: %v", label, err))
-				desktopService.Notify(fmt.Sprintf("CCX %s 失败", label), err.Error())
 			}
 		}()
 	}
@@ -333,10 +308,8 @@ func run() error {
 			if err := desktopService.CopyText(url); err != nil {
 				log.Printf("[Desktop-Tray] 复制 Web UI 地址失败: %v", err)
 				app.Event.Emit("desktop:tray-error", fmt.Sprintf("复制失败: %v", err))
-				desktopService.Notify("CCX 复制失败", err.Error())
 				return
 			}
-			desktopService.Notify("已复制 Web UI 地址", url)
 		})
 
 		menu.Add("复制 PROXY_ACCESS_KEY").OnClick(func(ctx *application.Context) {
@@ -344,16 +317,13 @@ func run() error {
 			if err != nil {
 				log.Printf("[Desktop-Tray] 获取 PROXY_ACCESS_KEY 失败: %v", err)
 				app.Event.Emit("desktop:tray-error", fmt.Sprintf("获取密钥失败: %v", err))
-				desktopService.Notify("CCX 获取密钥失败", err.Error())
 				return
 			}
 			if err := desktopService.CopyText(key); err != nil {
 				log.Printf("[Desktop-Tray] 复制 PROXY_ACCESS_KEY 失败: %v", err)
 				app.Event.Emit("desktop:tray-error", fmt.Sprintf("复制失败: %v", err))
-				desktopService.Notify("CCX 复制失败", err.Error())
 				return
 			}
-			desktopService.Notify("已复制 PROXY_ACCESS_KEY", "可粘贴到 Agent 配置")
 		})
 
 		menu.AddSeparator()
