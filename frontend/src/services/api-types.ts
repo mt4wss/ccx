@@ -70,6 +70,7 @@ export interface Channel {
   requestTimeoutMs?: number                // 非流式上游请求超时时间（毫秒，0/空=继承全局）
   streamFirstContentTimeoutMs?: number     // 流式首字等待超时（毫秒，0/空=继承全局）
   streamInactivityTimeoutMs?: number       // 流式首字后断流超时（毫秒，0/空=继承全局）
+  streamToolCallIdleTimeoutMs?: number     // 工具调用空闲超时（毫秒，0/空=继承全局）
   routePrefix?: string                     // 路由前缀（如 "kimi"，访问 /kimi/v1/messages）
   autoBlacklistBalance?: boolean           // 余额不足自动拉黑（默认 true）
   normalizeMetadataUserId?: boolean        // 规范化 metadata.user_id（默认 true）

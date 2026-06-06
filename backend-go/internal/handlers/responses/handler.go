@@ -892,8 +892,8 @@ func handleStreamSuccess(
 	eventsSentCount := 0
 	progress := common.NewStreamProgressLogger("Responses", startTime, envCfg.ShouldLog("info"))
 
-	// processLine 处理单行数据（复用于缓冲行回放和后续读取）
-	processLine := func(line string) {
+	// processLine 处理单行数据（复用于缓冲行回放和后续读取），并返回转换后的 Responses 事件用于 watchdog 状态判断。
+	processLine := func(line string) []string {
 
 		if streamLoggingEnabled {
 			logBuffer.WriteString(line + "\n")
@@ -1021,24 +1021,77 @@ func handleStreamSuccess(
 				}
 			}
 		}
+		return eventsToProcess
+	}
+
+	postCommitToolTracker := common.NewStreamToolCallTracker()
+	observePostCommitEvents := func(events []string) bool {
+		hadChange := false
+		wasPending := postCommitToolTracker.HasPendingToolCall()
+		for _, event := range events {
+			if malformed, name := postCommitToolTracker.ProcessResponsesEvent(event); malformed && envCfg.ShouldLog("info") {
+				log.Printf("[Responses-Stream-ToolCall] 检测到畸形工具调用: %s", name)
+			}
+		}
+		if postCommitToolTracker.HasPendingToolCall() != wasPending {
+			hadChange = true
+		}
+		return hadChange
 	}
 
 	// 回放预检测期间缓冲的行
 	for _, bufferedLine := range bufferedLines {
-		processLine(bufferedLine)
+		observePostCommitEvents(processLine(bufferedLine))
 	}
 
 	// 继续从 lineChan 读取剩余的流数据（带 SSE keep-alive 防止下游 idle timeout）
 	keepaliveTicker := time.NewTicker(15 * time.Second)
 	defer keepaliveTicker.Stop()
 
-	// post-commit：Header 已发送后的语义活动 watchdog，只由有效输出重置
+	// post-commit：Header 已发送后的 idle watchdog，由任意上游 SSE 活动重置。
 	var postCommitTimer *time.Timer
 	var postCommitChan <-chan time.Time
-	if timeouts.InactivityTimeoutMs > 0 {
-		postCommitTimer = time.NewTimer(time.Duration(timeouts.InactivityTimeoutMs) * time.Millisecond)
+	activePostCommitTimeoutMs := timeouts.InactivityTimeoutMs
+	if postCommitToolTracker.HasPendingToolCall() && timeouts.ToolCallIdleTimeoutMs > 0 {
+		activePostCommitTimeoutMs = timeouts.ToolCallIdleTimeoutMs
+	}
+	if activePostCommitTimeoutMs > 0 {
+		postCommitTimer = time.NewTimer(time.Duration(activePostCommitTimeoutMs) * time.Millisecond)
 		postCommitChan = postCommitTimer.C
-		defer postCommitTimer.Stop()
+	}
+	defer func() {
+		if postCommitTimer != nil {
+			postCommitTimer.Stop()
+		}
+	}()
+	resetPostCommitTimer := func(timeoutMs int) {
+		activePostCommitTimeoutMs = timeoutMs
+		if timeoutMs <= 0 {
+			if postCommitTimer != nil {
+				postCommitTimer.Stop()
+				postCommitTimer = nil
+				postCommitChan = nil
+			}
+			return
+		}
+		if postCommitTimer == nil {
+			postCommitTimer = time.NewTimer(time.Duration(timeoutMs) * time.Millisecond)
+			postCommitChan = postCommitTimer.C
+			return
+		}
+		if !postCommitTimer.Stop() {
+			select {
+			case <-postCommitTimer.C:
+			default:
+			}
+		}
+		postCommitTimer.Reset(time.Duration(timeoutMs) * time.Millisecond)
+	}
+	resolvePostCommitTimeoutMs := func() int {
+		if postCommitToolTracker.HasPendingToolCall() && timeouts.ToolCallIdleTimeoutMs > 0 {
+			return timeouts.ToolCallIdleTimeoutMs
+		}
+		return timeouts.InactivityTimeoutMs
 	}
 
 	for {
@@ -1047,20 +1100,20 @@ func handleStreamSuccess(
 			if !ok || !sl.ok {
 				goto streamEnd
 			}
-			processLine(sl.text)
+			events := processLine(sl.text)
 			keepaliveTicker.Reset(15 * time.Second)
-			if postCommitTimer != nil && common.HasResponsesSemanticContent("data: "+sl.text+"\n\n") {
-				if !postCommitTimer.Stop() {
-					select {
-					case <-postCommitTimer.C:
-					default:
-					}
-				}
-				postCommitTimer.Reset(time.Duration(timeouts.InactivityTimeoutMs) * time.Millisecond)
+			toolCallStateChanged := observePostCommitEvents(events)
+			nextTimeoutMs := resolvePostCommitTimeoutMs()
+			if common.HasStreamEventActivity(sl.text+"\n") || toolCallStateChanged || nextTimeoutMs != activePostCommitTimeoutMs {
+				resetPostCommitTimer(nextTimeoutMs)
 			}
 		case <-postCommitChan:
 			progress.Finish("stalled")
-			log.Printf("[Responses-StreamStalled] 流式断流: 首字后 %dms 无有效输出（Header 已发送）", timeouts.InactivityTimeoutMs)
+			if postCommitToolTracker.HasPendingToolCall() {
+				log.Printf("[Responses-StreamStalled] 流式断流: 工具调用阶段空闲 %dms 无上游输出（Header 已发送）", activePostCommitTimeoutMs)
+			} else {
+				log.Printf("[Responses-StreamStalled] 流式断流: Header 已发送后 %dms 无上游输出", activePostCommitTimeoutMs)
+			}
 			close(scanDone)
 			return nil, common.ErrStreamPostCommitStalled
 		case <-keepaliveTicker.C:

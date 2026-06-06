@@ -128,6 +128,8 @@ const form = reactive({
   streamFirstContentTimeoutMs: 30000,
   streamInactivityTimeoutEnabled: false,
   streamInactivityTimeoutMs: 5000,
+  streamToolCallIdleTimeoutEnabled: false,
+  streamToolCallIdleTimeoutMs: 3000,
   routePrefix: '',
   insecureSkipVerify: false,
   apiKeysText: '',
@@ -176,6 +178,8 @@ function resetForm() {
   form.streamFirstContentTimeoutMs = 30000
   form.streamInactivityTimeoutEnabled = false
   form.streamInactivityTimeoutMs = 5000
+  form.streamToolCallIdleTimeoutEnabled = false
+  form.streamToolCallIdleTimeoutMs = 3000
   form.routePrefix = ''
   form.insecureSkipVerify = false
   form.apiKeysText = ''
@@ -232,6 +236,8 @@ function populateFromChannel(ch: Channel) {
   form.streamFirstContentTimeoutMs = ch.streamFirstContentTimeoutMs && ch.streamFirstContentTimeoutMs > 0 ? ch.streamFirstContentTimeoutMs : 30000
   form.streamInactivityTimeoutEnabled = !!(ch.streamInactivityTimeoutMs && ch.streamInactivityTimeoutMs > 0)
   form.streamInactivityTimeoutMs = ch.streamInactivityTimeoutMs && ch.streamInactivityTimeoutMs > 0 ? ch.streamInactivityTimeoutMs : 5000
+  form.streamToolCallIdleTimeoutEnabled = !!(ch.streamToolCallIdleTimeoutMs && ch.streamToolCallIdleTimeoutMs > 0)
+  form.streamToolCallIdleTimeoutMs = ch.streamToolCallIdleTimeoutMs && ch.streamToolCallIdleTimeoutMs > 0 ? ch.streamToolCallIdleTimeoutMs : 3000
   form.routePrefix = ch.routePrefix || ''
   form.insecureSkipVerify = ch.insecureSkipVerify ?? false
   existingApiKeys.value = [...(ch.apiKeys || [])]
@@ -383,6 +389,7 @@ function buildSubmitPayload() {
         requestTimeoutMs: form.requestTimeoutMs,
         streamFirstContentTimeoutMs: form.streamFirstContentTimeoutEnabled ? form.streamFirstContentTimeoutMs : undefined,
         streamInactivityTimeoutMs: form.streamInactivityTimeoutEnabled ? form.streamInactivityTimeoutMs : undefined,
+        streamToolCallIdleTimeoutMs: form.streamToolCallIdleTimeoutEnabled ? form.streamToolCallIdleTimeoutMs : undefined,
         routePrefix: form.routePrefix,
         supportedModels: parseLines(form.supportedModelsText),
         autoBlacklistBalance: form.autoBlacklistBalance,
@@ -406,6 +413,9 @@ function buildSubmitPayload() {
   }
   if (isEditMode.value && props.channel?.streamInactivityTimeoutMs && !form.streamInactivityTimeoutEnabled) {
     payload.streamInactivityTimeoutMs = 0
+  }
+  if (isEditMode.value && props.channel?.streamToolCallIdleTimeoutMs && !form.streamToolCallIdleTimeoutEnabled) {
+    payload.streamToolCallIdleTimeoutMs = 0
   }
 
   return payload
@@ -952,6 +962,7 @@ function buildCurrentPayload() {
     requestTimeoutMs: form.requestTimeoutMs,
     streamFirstContentTimeoutMs: form.streamFirstContentTimeoutEnabled ? form.streamFirstContentTimeoutMs : undefined,
     streamInactivityTimeoutMs: form.streamInactivityTimeoutEnabled ? form.streamInactivityTimeoutMs : undefined,
+    streamToolCallIdleTimeoutMs: form.streamToolCallIdleTimeoutEnabled ? form.streamToolCallIdleTimeoutMs : undefined,
     routePrefix: form.routePrefix,
     supportedModels: parseLines(form.supportedModelsText),
     autoBlacklistBalance: form.autoBlacklistBalance,
@@ -1560,6 +1571,31 @@ function buildCurrentPayload() {
                               step="1000"
                               class="cb-slider w-full"
                               :disabled="!form.streamInactivityTimeoutEnabled"
+                            />
+                            <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>60s</span></div>
+                          </div>
+                        </div>
+                        <div class="border border-border bg-background/60 p-3 space-y-2">
+                          <div class="flex items-center justify-between gap-3">
+                            <Switch v-model="form.streamToolCallIdleTimeoutEnabled" class="shrink-0" />
+                            <div class="min-w-0 space-y-0.5">
+                              <Label class="text-xs">{{ tf('console.form.streamToolCallIdleTimeoutOverrideLabel', '自定义工具调用空闲超时') }}</Label>
+                              <p class="text-[10px] leading-4 text-muted-foreground">{{ form.streamToolCallIdleTimeoutEnabled ? tf('console.form.streamTimeoutOverrideHint', '自定义值覆盖全局流式超时') : tf('console.form.streamTimeoutInheritHint', '继承全局流式超时') }}</p>
+                            </div>
+                          </div>
+                          <div :class="{ 'opacity-50 pointer-events-none': !form.streamToolCallIdleTimeoutEnabled }">
+                            <div class="flex items-center justify-between mb-1">
+                              <span class="text-[10px] text-muted-foreground">{{ tf('console.form.streamToolCallIdleTimeoutLabel', '工具调用空闲超时') }}</span>
+                              <span class="text-[10px] font-medium">{{ (form.streamToolCallIdleTimeoutMs / 1000) }}s</span>
+                            </div>
+                            <input
+                              v-model.number="form.streamToolCallIdleTimeoutMs"
+                              type="range"
+                              min="1000"
+                              max="60000"
+                              step="1000"
+                              class="cb-slider w-full"
+                              :disabled="!form.streamToolCallIdleTimeoutEnabled"
                             />
                             <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>60s</span></div>
                           </div>

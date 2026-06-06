@@ -17,12 +17,12 @@ type nopFlusher struct{}
 
 func (nopFlusher) Flush() {}
 
-func TestResolveStreamPreflightTimeouts_ToolCallTimeoutIsIndependent(t *testing.T) {
+func TestResolveStreamPreflightTimeouts_ToolCallIdleTimeoutIsIndependent(t *testing.T) {
 	upstream := &config.UpstreamConfig{}
 	global := metrics.CircuitBreakerParams{
 		StreamFirstContentTimeoutMs: 30000,
 		StreamInactivityTimeoutMs:   5000,
-		StreamToolCallTimeoutMs:     60000,
+		StreamToolCallIdleTimeoutMs: 3000,
 	}
 
 	timeouts := ResolveStreamPreflightTimeouts(upstream, global)
@@ -30,23 +30,46 @@ func TestResolveStreamPreflightTimeouts_ToolCallTimeoutIsIndependent(t *testing.
 	if timeouts.InactivityTimeoutMs != 5000 {
 		t.Fatalf("InactivityTimeoutMs = %d, want 5000", timeouts.InactivityTimeoutMs)
 	}
-	if timeouts.ToolCallTimeoutMs != 60000 {
-		t.Fatalf("ToolCallTimeoutMs = %d, want 60000", timeouts.ToolCallTimeoutMs)
+	if timeouts.ToolCallIdleTimeoutMs != 3000 {
+		t.Fatalf("ToolCallIdleTimeoutMs = %d, want 3000", timeouts.ToolCallIdleTimeoutMs)
 	}
 }
 
-func TestResolveStreamPreflightTimeouts_ToolCallChannelOverride(t *testing.T) {
-	upstream := &config.UpstreamConfig{StreamToolCallTimeoutMs: 120000}
+func TestResolveStreamPreflightTimeouts_ToolCallIdleChannelOverride(t *testing.T) {
+	upstream := &config.UpstreamConfig{StreamToolCallIdleTimeoutMs: 12000}
 	global := metrics.CircuitBreakerParams{
 		StreamFirstContentTimeoutMs: 30000,
 		StreamInactivityTimeoutMs:   5000,
-		StreamToolCallTimeoutMs:     60000,
+		StreamToolCallIdleTimeoutMs: 3000,
 	}
 
 	timeouts := ResolveStreamPreflightTimeouts(upstream, global)
 
-	if timeouts.ToolCallTimeoutMs != 120000 {
-		t.Fatalf("ToolCallTimeoutMs = %d, want 120000", timeouts.ToolCallTimeoutMs)
+	if timeouts.ToolCallIdleTimeoutMs != 12000 {
+		t.Fatalf("ToolCallIdleTimeoutMs = %d, want 12000", timeouts.ToolCallIdleTimeoutMs)
+	}
+}
+
+func TestResolveStreamToolCallIdleTimeout_ClampsToRange(t *testing.T) {
+	tests := []struct {
+		name        string
+		channel     int
+		global      int
+		wantTimeout int
+	}{
+		{name: "below minimum", channel: 999, global: 3000, wantTimeout: 1000},
+		{name: "above maximum", channel: 60001, global: 3000, wantTimeout: 60000},
+		{name: "global below minimum", channel: 0, global: 999, wantTimeout: 1000},
+		{name: "global above maximum", channel: 0, global: 60001, wantTimeout: 60000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ResolveStreamToolCallIdleTimeout(tt.channel, tt.global)
+			if got != tt.wantTimeout {
+				t.Fatalf("ResolveStreamToolCallIdleTimeout(%d, %d) = %d, want %d", tt.channel, tt.global, got, tt.wantTimeout)
+			}
+		})
 	}
 }
 
@@ -811,6 +834,43 @@ func TestProcessStreamEvent_PatchedMessageStartDoesNotInferCacheRead(t *testing.
 	body := w.Body.String()
 	if strings.Contains(body, "cache_read_input_tokens") {
 		t.Fatalf("expected forwarded stream not to include inferred cache_read_input_tokens, body=%s", body)
+	}
+}
+
+func TestHasStreamEventActivity(t *testing.T) {
+	tests := []struct {
+		name  string
+		event string
+		want  bool
+	}{
+		{
+			name:  "data payload",
+			event: "event: response.in_progress\ndata: {\"type\":\"response.in_progress\"}\n\n",
+			want:  true,
+		},
+		{
+			name:  "comment keepalive",
+			event: ": keepalive\n\n",
+			want:  true,
+		},
+		{
+			name:  "done sentinel ignored",
+			event: "data: [DONE]\n\n",
+			want:  false,
+		},
+		{
+			name:  "blank ignored",
+			event: "\n\n",
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := HasStreamEventActivity(tt.event); got != tt.want {
+				t.Fatalf("HasStreamEventActivity() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

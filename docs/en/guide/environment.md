@@ -70,6 +70,16 @@ METRICS_WINDOW_SIZE=10                 # 滑动窗口大小（最小 3，默认 
 METRICS_FAILURE_THRESHOLD=0.5          # 失败率阈值（0-1，默认 0.5 即 50%）
 ```
 
+The runtime config file also supports stream health fields under `circuitBreaker`:
+
+| Field | Default | Range | Description |
+| --- | --- | --- | --- |
+| `streamFirstContentTimeoutMs` | `30000` | `5000-300000` | Time to wait for the first valid content after HTTP 200. |
+| `streamInactivityTimeoutMs` | `5000` | `1000-60000` | Idle time to wait for subsequent valid output after first content. |
+| `streamToolCallIdleTimeoutMs` | `3000` | `1000-60000` | Idle timeout while a tool call is pending; valid output resets the timer. |
+
+`streamToolCallIdleTimeoutMs` is a breaking field name. The old `streamToolCallTimeoutMs` field is no longer used, and this setting is not a total runtime limit for tool calls.
+
 #### Command-line runtime paths
 
 The CLI binary supports runtime path overrides. Without these flags, CCX keeps the existing defaults:

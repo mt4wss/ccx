@@ -334,7 +334,7 @@ func main() {
 			ConsecutiveFailuresThreshold: 3,
 			StreamFirstContentTimeoutMs:  30000,
 			StreamInactivityTimeoutMs:    5000,
-			StreamToolCallTimeoutMs:      60000,
+			StreamToolCallIdleTimeoutMs:  3000,
 		}
 		if cfg.CircuitBreaker != nil {
 			if cfg.CircuitBreaker.WindowSize != nil {
@@ -352,8 +352,8 @@ func main() {
 			if cfg.CircuitBreaker.StreamInactivityTimeoutMs != nil {
 				params.StreamInactivityTimeoutMs = *cfg.CircuitBreaker.StreamInactivityTimeoutMs
 			}
-			if cfg.CircuitBreaker.StreamToolCallTimeoutMs != nil {
-				params.StreamToolCallTimeoutMs = *cfg.CircuitBreaker.StreamToolCallTimeoutMs
+			if cfg.CircuitBreaker.StreamToolCallIdleTimeoutMs != nil {
+				params.StreamToolCallIdleTimeoutMs = *cfg.CircuitBreaker.StreamToolCallIdleTimeoutMs
 			}
 		}
 		messagesMetricsManager.UpdateCircuitBreakerConfig(params)

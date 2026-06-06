@@ -74,6 +74,7 @@ export interface Channel {
   requestTimeoutMs?: number
   streamFirstContentTimeoutMs?: number
   streamInactivityTimeoutMs?: number
+  streamToolCallIdleTimeoutMs?: number
   routePrefix?: string
   autoBlacklistBalance?: boolean
   normalizeMetadataUserId?: boolean

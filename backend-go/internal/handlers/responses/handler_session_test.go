@@ -63,3 +63,61 @@ func TestHandleSuccess_PreservesPreviousResponseID(t *testing.T) {
 		t.Fatalf("response body should not rewrite previous_id to current response id, got %s", body)
 	}
 }
+
+func TestHandleStreamSuccess_PostCommitActivityResetsIdleWatchdog(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5","stream":true}`))
+
+	reader, writer := io.Pipe()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": {"text/event-stream"}},
+		Body:       reader,
+	}
+
+	writeStream := func(s string) {
+		if _, err := io.WriteString(writer, s); err != nil {
+			return
+		}
+	}
+	go func() {
+		defer writer.Close()
+		writeStream("event: response.output_text.delta\n")
+		writeStream("data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n")
+		writeStream("event: response.output_text.delta\n")
+		writeStream("data: {\"type\":\"response.output_text.delta\",\"delta\":\"b\"}\n\n")
+
+		for i := 0; i < 2; i++ {
+			time.Sleep(60 * time.Millisecond)
+			writeStream("event: response.in_progress\n")
+			writeStream("data: {\"type\":\"response.in_progress\"}\n\n")
+		}
+
+		time.Sleep(60 * time.Millisecond)
+		writeStream("event: response.completed\n")
+		writeStream("data: {\"type\":\"response.completed\",\"response\":{\"output\":[]},\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}\n\n")
+	}()
+
+	_, err := handleStreamSuccess(
+		c,
+		resp,
+		"responses",
+		&config.EnvConfig{LogLevel: "info"},
+		time.Now(),
+		&types.ResponsesRequest{Model: "gpt-5"},
+		[]byte(`{"model":"gpt-5","stream":true}`),
+		common.StreamPreflightTimeouts{
+			FirstContentTimeoutMs: 1000,
+			InactivityTimeoutMs:   150,
+			ToolCallIdleTimeoutMs: 80,
+		},
+	)
+	if err != nil {
+		t.Fatalf("handleStreamSuccess() err = %v", err)
+	}
+	if !strings.Contains(w.Body.String(), "response.in_progress") {
+		t.Fatalf("expected forwarded progress event, got %s", w.Body.String())
+	}
+}

@@ -355,13 +355,16 @@ func sendAndCheckStream(ctx context.Context, channel *config.UpstreamConfig, req
 	}
 
 	responseLogBuffer := common.NewLimitedLogBuffer(common.MaxUpstreamResponseLogBytes)
+	logFailureResponseBody := func() {
+		common.LogUpstreamResponseBody(responseLogBuffer.Bytes(), envCfg, apiType)
+	}
 	bodyReader := io.Reader(resp.Body)
 	if envCfg.EnableResponseLogs && envCfg.IsDevelopment() {
 		bodyReader = io.TeeReader(resp.Body, responseLogBuffer)
 	}
 	eventChan, errChan, err := provider.HandleStreamResponse(io.NopCloser(bodyReader))
 	if err != nil {
-		common.LogUpstreamResponseBody(responseLogBuffer.Bytes(), envCfg, apiType)
+		logFailureResponseBody()
 		return false, false, resp.StatusCode, nil, err
 	}
 
@@ -387,21 +390,22 @@ func sendAndCheckStream(ctx context.Context, channel *config.UpstreamConfig, req
 	select {
 	case result = <-doneCh:
 	case <-readCtx.Done():
-		common.LogUpstreamResponseBody(responseLogBuffer.Bytes(), envCfg, apiType)
+		logFailureResponseBody()
 		return false, false, resp.StatusCode, nil, fmt.Errorf("流式响应读取超时")
 	}
 
-	common.LogUpstreamResponseBody(responseLogBuffer.Bytes(), envCfg, apiType)
-
 	if result.err != nil {
+		logFailureResponseBody()
 		return false, false, resp.StatusCode, nil, result.err
 	}
 
 	if result.preflight == nil {
+		logFailureResponseBody()
 		return false, false, resp.StatusCode, nil, fmt.Errorf("流式响应预检失败")
 	}
 
 	if result.preflight.IsEmpty {
+		logFailureResponseBody()
 		if result.preflight.Diagnostic != "" {
 			return false, false, 0, nil, fmt.Errorf("上游返回空响应 (%s)", result.preflight.Diagnostic)
 		}
@@ -409,6 +413,7 @@ func sendAndCheckStream(ctx context.Context, channel *config.UpstreamConfig, req
 	}
 
 	if isTimedOutPreflightResult(result.preflight) {
+		logFailureResponseBody()
 		return false, false, 0, nil, fmt.Errorf("流式响应预检超时，未收到任何 SSE 事件")
 	}
 

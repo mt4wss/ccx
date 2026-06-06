@@ -335,6 +335,8 @@ export type MessageKey =
   | 'env.runtimeCbStreamFirstContentTimeoutDesc'
   | 'env.runtimeCbStreamInactivityTimeout'
   | 'env.runtimeCbStreamInactivityTimeoutDesc'
+  | 'env.runtimeCbStreamToolCallIdleTimeout'
+  | 'env.runtimeCbStreamToolCallIdleTimeoutDesc'
   | 'env.runtimeCbPresetGentle'
   | 'env.runtimeCbPresetBalanced'
   | 'env.runtimeCbPresetAggressive'
@@ -486,6 +488,8 @@ export type MessageKey =
   | 'console.form.streamFirstContentTimeoutLabel'
   | 'console.form.streamInactivityTimeoutOverrideLabel'
   | 'console.form.streamInactivityTimeoutLabel'
+  | 'console.form.streamToolCallIdleTimeoutOverrideLabel'
+  | 'console.form.streamToolCallIdleTimeoutLabel'
   | 'console.form.streamTimeoutOverrideHint'
   | 'console.form.streamTimeoutInheritHint'
   | 'console.form.cancel'
@@ -935,6 +939,8 @@ export const messages: Record<SupportedLocale, Messages> = {
     'env.runtimeCbStreamFirstContentTimeoutDesc': 'Wait for first valid content after HTTP 200 (0=disabled, 1000-300000ms)',
     'env.runtimeCbStreamInactivityTimeout': 'Inactivity Timeout',
     'env.runtimeCbStreamInactivityTimeoutDesc': 'Wait for subsequent activity after first content (0=disabled, 1000-60000ms)',
+    'env.runtimeCbStreamToolCallIdleTimeout': 'Tool Call Idle Timeout',
+    'env.runtimeCbStreamToolCallIdleTimeoutDesc': 'Wait for valid output while a tool call is pending (1000-60000ms)',
     'env.runtimeCbPresetGentle': 'Gentle',
     'env.runtimeCbPresetBalanced': 'Balanced',
     'env.runtimeCbPresetAggressive': 'Aggressive',
@@ -1091,6 +1097,8 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.streamFirstContentTimeoutLabel': 'First content timeout',
     'console.form.streamInactivityTimeoutOverrideLabel': 'Customize inactivity timeout',
     'console.form.streamInactivityTimeoutLabel': 'Inactivity timeout',
+    'console.form.streamToolCallIdleTimeoutOverrideLabel': 'Customize tool call idle timeout',
+    'console.form.streamToolCallIdleTimeoutLabel': 'Tool call idle timeout',
     'console.form.streamTimeoutOverrideHint': 'Custom value overrides the global stream timeout for this channel.',
     'console.form.streamTimeoutInheritHint': 'Disabled means this channel inherits the global stream timeout.',
     'console.form.cancel': 'Cancel',
@@ -1532,6 +1540,8 @@ export const messages: Record<SupportedLocale, Messages> = {
     'env.runtimeCbStreamFirstContentTimeoutDesc': 'HTTP 200 后等待首个有效内容的时间（0=禁用, 1000-300000ms）',
     'env.runtimeCbStreamInactivityTimeout': '首字后断流超时',
     'env.runtimeCbStreamInactivityTimeoutDesc': '首字后等待后续活动的时间（0=禁用, 1000-60000ms）',
+    'env.runtimeCbStreamToolCallIdleTimeout': '工具调用空闲超时',
+    'env.runtimeCbStreamToolCallIdleTimeoutDesc': '工具调用 pending 时等待有效输出的时间（1000-60000ms）',
     'env.runtimeCbPresetGentle': '温和',
     'env.runtimeCbPresetBalanced': '均衡',
     'env.runtimeCbPresetAggressive': '激进',
@@ -1688,6 +1698,8 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.streamFirstContentTimeoutLabel': '首字等待超时',
     'console.form.streamInactivityTimeoutOverrideLabel': '自定义断流超时',
     'console.form.streamInactivityTimeoutLabel': '首字后断流超时',
+    'console.form.streamToolCallIdleTimeoutOverrideLabel': '自定义工具调用空闲超时',
+    'console.form.streamToolCallIdleTimeoutLabel': '工具调用空闲超时',
     'console.form.streamTimeoutOverrideHint': '自定义值会覆盖本渠道的全局流式超时。',
     'console.form.streamTimeoutInheritHint': '关闭表示本渠道继承全局流式超时。',
     'console.form.cancel': '取消',

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,6 +25,17 @@ func resetCapabilityTestState() {
 	capabilityCache.Lock()
 	capabilityCache.entries = make(map[string]*capabilityCacheEntry)
 	capabilityCache.Unlock()
+}
+
+func captureCapabilityLogs(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	oldWriter := log.Writer()
+	log.SetOutput(&buf)
+	t.Cleanup(func() {
+		log.SetOutput(oldWriter)
+	})
+	return &buf
 }
 
 func TestCancelCapabilityTestJob_HTTP(t *testing.T) {
@@ -344,6 +357,62 @@ func TestExecuteModelTest_RecordsCapabilityLogOnSuccess(t *testing.T) {
 	}
 	if logs[0].InterfaceType != "messages" {
 		t.Fatalf("interfaceType=%q, want messages", logs[0].InterfaceType)
+	}
+}
+
+func TestExecuteModelTest_SuccessfulStreamDoesNotLogRawResponseBody(t *testing.T) {
+	resetCapabilityTestState()
+	t.Setenv("ENV", "development")
+	t.Setenv("ENABLE_RESPONSE_LOGS", "true")
+	gin.SetMode(gin.TestMode)
+
+	logBuf := captureCapabilityLogs(t)
+	job := newCapabilityTestJob(0, "channel", "responses", "responses", []string{"responses"}, 10*time.Second, 10)
+	job.Tests[0].ModelResults = []CapabilityModelJobResult{{Model: "gpt-test", Status: CapabilityModelStatusQueued, Lifecycle: CapabilityLifecyclePending, Outcome: CapabilityOutcomeUnknown}}
+	capabilityJobs.create(job)
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.json")
+	initialConfig := `{
+		"upstream": [{
+			"name": "channel",
+			"baseUrl": "REPLACE_ME",
+			"apiKeys": ["test-key"],
+			"serviceType": "responses"
+		}]
+	}`
+	const rawSSEText = "capability-success-stream-body-should-not-log"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"" + rawSSEText + "\"}\n\n"))
+	}))
+	defer server.Close()
+
+	initialConfig = strings.Replace(initialConfig, "REPLACE_ME", server.URL, 1)
+	if err := os.WriteFile(configFile, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfgManager, err := config.NewConfigManager(configFile, "")
+	if err != nil {
+		t.Fatalf("create config manager failed: %v", err)
+	}
+	defer cfgManager.Close()
+
+	cfg := cfgManager.GetConfig()
+	result := executeModelTest(context.Background(), &cfg.Upstream[0], "responses", "gpt-test", 5*time.Second, job.JobID, cfgManager, 0, "responses", "test-key", nil)
+	if !result.Success {
+		t.Fatalf("result.Success=false, want true, error=%v, logs=%s", result.Error, logBuf.String())
+	}
+
+	logs := logBuf.String()
+	if strings.Contains(logs, "[Responses-Response] 响应体") {
+		t.Fatalf("successful capability stream logged response body: %s", logs)
+	}
+	if strings.Contains(logs, rawSSEText) {
+		t.Fatalf("successful capability stream leaked raw SSE body: %s", logs)
 	}
 }
 

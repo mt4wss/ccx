@@ -70,6 +70,16 @@ METRICS_WINDOW_SIZE=10                 # 滑动窗口大小（最小 3，默认 
 METRICS_FAILURE_THRESHOLD=0.5          # 失败率阈值（0-1，默认 0.5 即 50%）
 ```
 
+运行时配置文件中的 `circuitBreaker` 还支持流式健康检测字段：
+
+| 字段 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `streamFirstContentTimeoutMs` | `30000` | `5000-300000` | HTTP 200 后等待首个有效内容的时间。 |
+| `streamInactivityTimeoutMs` | `5000` | `1000-60000` | 首字后等待后续有效输出的空闲时间。 |
+| `streamToolCallIdleTimeoutMs` | `3000` | `1000-60000` | 工具调用 pending 阶段连续无有效输出的 idle timeout；收到有效输出会重置计时器。 |
+
+`streamToolCallIdleTimeoutMs` 是破坏性字段名，旧 `streamToolCallTimeoutMs` 不再使用。该字段不是工具调用总耗时上限。
+
 #### 命令行运行时路径
 
 命令行版支持用参数覆盖运行时路径，不传参数时仍保持默认行为：

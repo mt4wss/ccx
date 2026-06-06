@@ -26,6 +26,7 @@ export interface ChannelFormLike {
   requestTimeoutMs?: string | number | null
   streamFirstContentTimeoutMs?: string | number | null
   streamInactivityTimeoutMs?: string | number | null
+  streamToolCallIdleTimeoutMs?: string | number | null
   routePrefix: string
   supportedModels: string[]
   autoBlacklistBalance: boolean
@@ -108,6 +109,11 @@ export function buildChannelPayload(form: ChannelFormLike): Omit<Channel, 'index
   const streamInactivityTimeoutMs = Number(form.streamInactivityTimeoutMs)
   if (Number.isInteger(streamInactivityTimeoutMs) && streamInactivityTimeoutMs > 0) {
     channelData.streamInactivityTimeoutMs = streamInactivityTimeoutMs
+  }
+
+  const streamToolCallIdleTimeoutMs = Number(form.streamToolCallIdleTimeoutMs)
+  if (Number.isInteger(streamToolCallIdleTimeoutMs) && streamToolCallIdleTimeoutMs > 0) {
+    channelData.streamToolCallIdleTimeoutMs = streamToolCallIdleTimeoutMs
   }
 
   return channelData

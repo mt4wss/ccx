@@ -1144,6 +1144,39 @@
               </v-card>
             </v-col>
 
+            <v-col cols="12" md="6">
+              <v-card variant="tonal" class="pa-4 h-100">
+                <v-switch
+                  v-model="form.streamToolCallIdleTimeoutEnabled"
+                  :label="t('addChannel.streamToolCallIdleTimeoutOverrideLabel')"
+                  color="primary"
+                  density="comfortable"
+                  hide-details
+                />
+                <div class="mt-3" :class="{ 'opacity-50': !form.streamToolCallIdleTimeoutEnabled }">
+                  <div class="d-flex justify-space-between align-center mb-2">
+                    <span class="text-caption text-medium-emphasis">{{ t('addChannel.streamToolCallIdleTimeoutLabel') }}</span>
+                    <span class="text-caption font-weight-medium">{{ (form.streamToolCallIdleTimeoutMs / 1000) }}s</span>
+                  </div>
+                  <input
+                    v-model.number="form.streamToolCallIdleTimeoutMs"
+                    type="range"
+                    min="1000"
+                    max="60000"
+                    step="1000"
+                    class="w-100"
+                    :disabled="!form.streamToolCallIdleTimeoutEnabled"
+                  />
+                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                    <span>1s</span><span>60s</span>
+                  </div>
+                  <div class="text-caption text-medium-emphasis mt-2">
+                    {{ form.streamToolCallIdleTimeoutEnabled ? t('addChannel.streamTimeoutOverrideHint') : t('addChannel.streamTimeoutInheritHint') }}
+                  </div>
+                </div>
+              </v-card>
+            </v-col>
+
             <!-- 路由前缀 -->
             <v-col cols="12">
               <v-text-field
@@ -2004,6 +2037,8 @@ const form = reactive({
   streamFirstContentTimeoutMs: 30000,
   streamInactivityTimeoutEnabled: false,
   streamInactivityTimeoutMs: 5000,
+  streamToolCallIdleTimeoutEnabled: false,
+  streamToolCallIdleTimeoutMs: 3000,
   routePrefix: '',
   supportedModels: [] as string[],
   autoBlacklistBalance: true,
@@ -2306,7 +2341,8 @@ const normalizeComparablePayload = (payload: Partial<Channel>) => ({
   reasoningParamStyle: payload.reasoningParamStyle || 'reasoning',
   requestTimeoutMs: payload.requestTimeoutMs || undefined,
   streamFirstContentTimeoutMs: payload.streamFirstContentTimeoutMs || undefined,
-  streamInactivityTimeoutMs: payload.streamInactivityTimeoutMs || undefined
+  streamInactivityTimeoutMs: payload.streamInactivityTimeoutMs || undefined,
+  streamToolCallIdleTimeoutMs: payload.streamToolCallIdleTimeoutMs || undefined
 })
 
 const buildSubmitPayload = () => {
@@ -2321,6 +2357,12 @@ const buildSubmitPayload = () => {
     delete payload.streamInactivityTimeoutMs
     if (isEditing.value && props.channel?.streamInactivityTimeoutMs) {
       payload.streamInactivityTimeoutMs = 0
+    }
+  }
+  if (!form.streamToolCallIdleTimeoutEnabled) {
+    delete payload.streamToolCallIdleTimeoutMs
+    if (isEditing.value && props.channel?.streamToolCallIdleTimeoutMs) {
+      payload.streamToolCallIdleTimeoutMs = 0
     }
   }
   if (isEditing.value && props.channel?.requestTimeoutMs && !payload.requestTimeoutMs) {
@@ -2441,6 +2483,8 @@ const resetForm = () => {
   form.streamFirstContentTimeoutMs = 30000
   form.streamInactivityTimeoutEnabled = false
   form.streamInactivityTimeoutMs = 5000
+  form.streamToolCallIdleTimeoutEnabled = false
+  form.streamToolCallIdleTimeoutMs = 3000
   form.routePrefix = ''
   form.supportedModels = []
   supportedModelsError.value = ''
@@ -2518,6 +2562,8 @@ const loadChannelData = (channel: Channel) => {
   form.streamFirstContentTimeoutMs = channel.streamFirstContentTimeoutMs && channel.streamFirstContentTimeoutMs > 0 ? channel.streamFirstContentTimeoutMs : 30000
   form.streamInactivityTimeoutEnabled = !!(channel.streamInactivityTimeoutMs && channel.streamInactivityTimeoutMs > 0)
   form.streamInactivityTimeoutMs = channel.streamInactivityTimeoutMs && channel.streamInactivityTimeoutMs > 0 ? channel.streamInactivityTimeoutMs : 5000
+  form.streamToolCallIdleTimeoutEnabled = !!(channel.streamToolCallIdleTimeoutMs && channel.streamToolCallIdleTimeoutMs > 0)
+  form.streamToolCallIdleTimeoutMs = channel.streamToolCallIdleTimeoutMs && channel.streamToolCallIdleTimeoutMs > 0 ? channel.streamToolCallIdleTimeoutMs : 3000
   form.routePrefix = channel.routePrefix || ''
   const { validPatterns, hasInvalidPatterns } = filterValidSupportedModelPatterns(channel.supportedModels || [])
   form.supportedModels = validPatterns
@@ -2916,7 +2962,7 @@ const PAYLOAD_KEYS = [
   'name', 'serviceType', 'baseUrl', 'baseUrls', 'website', 'insecureSkipVerify',
   'lowQuality', 'injectDummyThoughtSignature', 'stripThoughtSignature', 'description',
   'apiKeys', 'modelMapping', 'reasoningMapping', 'reasoningParamStyle', 'textVerbosity',
-  'fastMode', 'customHeaders', 'proxyUrl', 'requestTimeoutMs', 'streamFirstContentTimeoutMs', 'streamInactivityTimeoutMs', 'routePrefix', 'supportedModels',
+  'fastMode', 'customHeaders', 'proxyUrl', 'requestTimeoutMs', 'streamFirstContentTimeoutMs', 'streamInactivityTimeoutMs', 'streamToolCallIdleTimeoutMs', 'routePrefix', 'supportedModels',
   'autoBlacklistBalance', 'normalizeMetadataUserId', 'passbackThinkingBlocks', 'stripEmptyTextBlocks', 'normalizeSystemRoleToTopLevel', 'codexNativeToolPassthrough',
   'codexToolCompat', 'normalizeNonstandardChatRoles', 'stripCodexClientTools'
 ] as const

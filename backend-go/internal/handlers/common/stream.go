@@ -40,7 +40,7 @@ var ErrStreamPostCommitStalled = errors.New("stream stalled after response commi
 type StreamPreflightTimeouts struct {
 	FirstContentTimeoutMs int // 阶段A：首个有效内容等待超时（ms，范围 5000-300000）
 	InactivityTimeoutMs   int // 阶段B：首字后连续性确认窗口（ms，范围 1000-60000）
-	ToolCallTimeoutMs     int // 工具调用参数生成等待超时（ms）
+	ToolCallIdleTimeoutMs int // 工具调用空闲超时（ms，范围 1000-60000）
 }
 
 // ResolveStreamFirstContentTimeout 解析首字等待超时：渠道 >0 覆盖全局，否则继承全局
@@ -71,16 +71,16 @@ func ResolveStreamInactivityTimeout(channelValue int, globalValue int) int {
 	return val
 }
 
-// ResolveStreamToolCallTimeout 解析工具调用参数生成等待超时：渠道 >0 覆盖全局，否则继承全局
-func ResolveStreamToolCallTimeout(channelValue int, globalValue int) int {
+// ResolveStreamToolCallIdleTimeout 解析工具调用空闲超时：渠道 >0 覆盖全局，否则继承全局
+func ResolveStreamToolCallIdleTimeout(channelValue int, globalValue int) int {
 	val := globalValue
 	if channelValue > 0 {
 		val = channelValue
 	}
-	if val < 5000 {
-		val = 5000
-	} else if val > 300000 {
-		val = 300000
+	if val < 1000 {
+		val = 1000
+	} else if val > 60000 {
+		val = 60000
 	}
 	return val
 }
@@ -91,7 +91,7 @@ func ResolveStreamPreflightTimeouts(upstream *config.UpstreamConfig, global metr
 	return StreamPreflightTimeouts{
 		FirstContentTimeoutMs: ResolveStreamFirstContentTimeout(upstream.StreamFirstContentTimeoutMs, global.StreamFirstContentTimeoutMs),
 		InactivityTimeoutMs:   inactivityTimeoutMs,
-		ToolCallTimeoutMs:     ResolveStreamToolCallTimeout(upstream.StreamToolCallTimeoutMs, global.StreamToolCallTimeoutMs),
+		ToolCallIdleTimeoutMs: ResolveStreamToolCallIdleTimeout(upstream.StreamToolCallIdleTimeoutMs, global.StreamToolCallIdleTimeoutMs),
 	}
 }
 
@@ -624,6 +624,25 @@ func hasNonTextContentBlock(event string) bool {
 	return HasClaudeSemanticContent(event)
 }
 
+// HasStreamEventActivity 判断 SSE 事件是否包含可视为上游仍在输出的内容。
+// post-commit watchdog 使用它作为 idle reset 信号，避免 reasoning/progress/tool 状态事件被误判为断流。
+func HasStreamEventActivity(event string) bool {
+	for _, line := range strings.Split(event, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "data:") {
+			payload := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
+			if payload == "" || payload == "[DONE]" {
+				continue
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // HasClaudeSemanticContent 判断 Claude/Messages 风格 SSE 是否包含有效语义内容
 func HasClaudeSemanticContent(event string) bool {
 	for _, line := range strings.Split(event, "\n") {
@@ -895,7 +914,7 @@ func ProcessStreamEvents(
 	requestBody []byte,
 	timeouts StreamPreflightTimeouts,
 ) (*types.Usage, error) {
-	// post-commit：Header 已发送后的语义活动 watchdog，只由有效输出重置。
+	// post-commit：Header 已发送后的 idle watchdog，由任意上游 SSE 活动重置。
 	var postCommitTimer *time.Timer
 	var postCommitChan <-chan time.Time
 	activeTimeoutMs := timeouts.InactivityTimeoutMs
@@ -906,8 +925,8 @@ func ProcessStreamEvents(
 	}
 	progress := NewStreamProgressLogger("Messages", startTime, envCfg.ShouldLog("info"))
 	toolCallPending := ctx.ToolCallTracker != nil && ctx.ToolCallTracker.HasPendingToolCall()
-	if toolCallPending && timeouts.ToolCallTimeoutMs > 0 {
-		activeTimeoutMs = timeouts.ToolCallTimeoutMs
+	if toolCallPending && timeouts.ToolCallIdleTimeoutMs > 0 {
+		activeTimeoutMs = timeouts.ToolCallIdleTimeoutMs
 		if postCommitTimer != nil {
 			if !postCommitTimer.Stop() {
 				select {
@@ -933,12 +952,12 @@ func ProcessStreamEvents(
 				progress.AddText(ctx.OutputTextBuffer.String()[prevTextLen:])
 				progress.Tick()
 			}
-			eventHasActivity := ctx.OutputTextBuffer.Len() > prevTextLen || HasClaudeSemanticContent(event)
+			eventHasActivity := ctx.OutputTextBuffer.Len() > prevTextLen || HasClaudeSemanticContent(event) || HasStreamEventActivity(event)
 			nowToolCallPending := ctx.ToolCallTracker != nil && ctx.ToolCallTracker.HasPendingToolCall()
 			if nowToolCallPending != toolCallPending {
 				toolCallPending = nowToolCallPending
-				if toolCallPending && timeouts.ToolCallTimeoutMs > 0 {
-					activeTimeoutMs = timeouts.ToolCallTimeoutMs
+				if toolCallPending && timeouts.ToolCallIdleTimeoutMs > 0 {
+					activeTimeoutMs = timeouts.ToolCallIdleTimeoutMs
 				} else {
 					activeTimeoutMs = timeouts.InactivityTimeoutMs
 				}
@@ -974,9 +993,9 @@ func ProcessStreamEvents(
 			}
 		case <-postCommitChan:
 			if toolCallPending {
-				log.Printf("[Messages-StreamStalled] 流式断流: 工具调用参数生成 %dms 无有效输出（Header 已发送）", activeTimeoutMs)
+				log.Printf("[Messages-StreamStalled] 流式断流: 工具调用阶段空闲 %dms 无上游输出（Header 已发送）", activeTimeoutMs)
 			} else {
-				log.Printf("[Messages-StreamStalled] 流式断流: Header 已发送后 %dms 无有效输出", activeTimeoutMs)
+				log.Printf("[Messages-StreamStalled] 流式断流: Header 已发送后 %dms 无上游输出", activeTimeoutMs)
 			}
 			logPartialResponse(ctx, envCfg)
 			if !ctx.ClientGone {

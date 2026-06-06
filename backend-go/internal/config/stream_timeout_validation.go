@@ -7,8 +7,8 @@ const (
 	maxStreamFirstContentTimeoutMs = 300000
 	minStreamInactivityTimeoutMs   = 1000
 	maxStreamInactivityTimeoutMs   = 60000
-	minStreamToolCallTimeoutMs     = 5000
-	maxStreamToolCallTimeoutMs     = 300000
+	minStreamToolCallIdleTimeoutMs = 1000
+	maxStreamToolCallIdleTimeoutMs = 60000
 )
 
 func validateStreamFirstContentTimeoutMs(value int) error {
@@ -31,24 +31,24 @@ func validateStreamInactivityTimeoutMs(value int) error {
 	return nil
 }
 
-func validateStreamToolCallTimeoutMs(value int) error {
+func validateStreamToolCallIdleTimeoutMs(value int) error {
 	if value == 0 {
 		return nil
 	}
-	if value < minStreamToolCallTimeoutMs || value > maxStreamToolCallTimeoutMs {
-		return fmt.Errorf("工具调用参数生成超时必须为 0（继承全局）或 %d-%d 之间", minStreamToolCallTimeoutMs, maxStreamToolCallTimeoutMs)
+	if value < minStreamToolCallIdleTimeoutMs || value > maxStreamToolCallIdleTimeoutMs {
+		return fmt.Errorf("工具调用空闲超时必须为 0（继承全局）或 %d-%d 之间", minStreamToolCallIdleTimeoutMs, maxStreamToolCallIdleTimeoutMs)
 	}
 	return nil
 }
 
-func validateStreamTimeouts(firstContentTimeoutMs int, inactivityTimeoutMs int, toolCallTimeoutMs int) error {
+func validateStreamTimeouts(firstContentTimeoutMs int, inactivityTimeoutMs int, toolCallIdleTimeoutMs int) error {
 	if err := validateStreamFirstContentTimeoutMs(firstContentTimeoutMs); err != nil {
 		return err
 	}
 	if err := validateStreamInactivityTimeoutMs(inactivityTimeoutMs); err != nil {
 		return err
 	}
-	if err := validateStreamToolCallTimeoutMs(toolCallTimeoutMs); err != nil {
+	if err := validateStreamToolCallIdleTimeoutMs(toolCallIdleTimeoutMs); err != nil {
 		return err
 	}
 	return nil

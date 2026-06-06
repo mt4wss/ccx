@@ -24,19 +24,20 @@ const form = reactive({
   consecutiveFailuresThreshold: 3,
   streamFirstContentTimeoutMs: 30000,
   streamInactivityTimeoutMs: 5000,
+  streamToolCallIdleTimeoutMs: 3000,
 })
 
 const presets = [
-  { key: 'gentle', labelKey: 'env.runtimeCbPresetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 10000 },
-  { key: 'balanced', labelKey: 'env.runtimeCbPresetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000 },
-  { key: 'aggressive', labelKey: 'env.runtimeCbPresetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 10000, streamInactivityTimeoutMs: 3000 },
-  { key: 'custom', labelKey: 'env.runtimeCbPresetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000 },
+  { key: 'gentle', labelKey: 'env.runtimeCbPresetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 10000, streamToolCallIdleTimeoutMs: 5000 },
+  { key: 'balanced', labelKey: 'env.runtimeCbPresetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000, streamToolCallIdleTimeoutMs: 3000 },
+  { key: 'aggressive', labelKey: 'env.runtimeCbPresetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 10000, streamInactivityTimeoutMs: 3000, streamToolCallIdleTimeoutMs: 2000 },
+  { key: 'custom', labelKey: 'env.runtimeCbPresetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000, streamToolCallIdleTimeoutMs: 3000 },
 ]
 
 const matchPreset = () => {
   for (const p of presets) {
     if (p.key === 'custom') continue
-    if (form.windowSize === p.windowSize && form.failureThreshold === p.failureThreshold && form.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && form.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && form.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs) {
+    if (form.windowSize === p.windowSize && form.failureThreshold === p.failureThreshold && form.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && form.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && form.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs && form.streamToolCallIdleTimeoutMs === p.streamToolCallIdleTimeoutMs) {
       activePreset.value = p.key
       return
     }
@@ -51,6 +52,7 @@ const applyPreset = (preset: typeof presets[number]) => {
   form.consecutiveFailuresThreshold = preset.consecutiveFailuresThreshold
   form.streamFirstContentTimeoutMs = preset.streamFirstContentTimeoutMs
   form.streamInactivityTimeoutMs = preset.streamInactivityTimeoutMs
+  form.streamToolCallIdleTimeoutMs = preset.streamToolCallIdleTimeoutMs
   activePreset.value = preset.key
 }
 
@@ -66,6 +68,8 @@ const onSliderChange = (field: string, event: Event) => {
     form.streamFirstContentTimeoutMs = val
   } else if (field === 'streamInactivityTimeoutMs') {
     form.streamInactivityTimeoutMs = val
+  } else if (field === 'streamToolCallIdleTimeoutMs') {
+    form.streamToolCallIdleTimeoutMs = val
   }
   matchPreset()
 }
@@ -112,6 +116,7 @@ const fetchConfig = async () => {
     form.consecutiveFailuresThreshold = data.consecutiveFailuresThreshold ?? 3
     form.streamFirstContentTimeoutMs = data.streamFirstContentTimeoutMs && data.streamFirstContentTimeoutMs >= 5000 ? data.streamFirstContentTimeoutMs : 30000
     form.streamInactivityTimeoutMs = data.streamInactivityTimeoutMs && data.streamInactivityTimeoutMs >= 1000 ? data.streamInactivityTimeoutMs : 5000
+    form.streamToolCallIdleTimeoutMs = data.streamToolCallIdleTimeoutMs && data.streamToolCallIdleTimeoutMs >= 1000 ? data.streamToolCallIdleTimeoutMs : 3000
     matchPreset()
   } catch (e) {
     showMessage(t('env.runtimeCbLoadFailed', { error: e instanceof Error ? e.message : String(e) }), 'error')
@@ -140,6 +145,7 @@ const saveConfig = async () => {
         consecutiveFailuresThreshold: form.consecutiveFailuresThreshold,
         streamFirstContentTimeoutMs: form.streamFirstContentTimeoutMs,
         streamInactivityTimeoutMs: form.streamInactivityTimeoutMs,
+        streamToolCallIdleTimeoutMs: form.streamToolCallIdleTimeoutMs,
       }),
     })
     if (!resp.ok) {
@@ -296,6 +302,27 @@ onMounted(() => {
             class="cb-slider w-full"
             :disabled="!status.running"
             @input="onSliderChange('streamInactivityTimeoutMs', $event)"
+          />
+          <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>60s</span></div>
+        </div>
+
+        <div class="w-px bg-border mx-1 self-stretch" />
+
+        <!-- 工具调用空闲超时 -->
+        <div class="flex-1 px-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbStreamToolCallIdleTimeout') }}</span>
+            <span class="text-xs font-medium">{{ (form.streamToolCallIdleTimeoutMs / 1000) + 's' }}</span>
+          </div>
+          <input
+            type="range"
+            :value="form.streamToolCallIdleTimeoutMs"
+            :min="1000"
+            :max="60000"
+            step="1000"
+            class="cb-slider w-full"
+            :disabled="!status.running"
+            @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
           />
           <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>60s</span></div>
         </div>

@@ -546,6 +546,26 @@
                 <span>1s</span><span>60s</span>
               </div>
             </div>
+
+            <!-- 工具调用空闲超时 -->
+            <div class="cb-control">
+              <div class="cb-control-header">
+                <span class="cb-slider-label">{{ t('dialog.circuitBreaker.streamToolCallIdleTimeout') }}</span>
+                <span class="cb-slider-value">{{ (cbForm.streamToolCallIdleTimeoutMs / 1000) + 's' }}</span>
+              </div>
+              <input
+                type="range"
+                :value="cbForm.streamToolCallIdleTimeoutMs"
+                :min="1000"
+                :max="60000"
+                step="1000"
+                class="cb-slider w-100"
+                @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
+              />
+              <div class="cb-slider-range">
+                <span>1s</span><span>60s</span>
+              </div>
+            </div>
           </div>
 
           <!-- 预设按钮 -->
@@ -1746,19 +1766,20 @@ const cbForm = reactive({
   consecutiveFailuresThreshold: 3,
   streamFirstContentTimeoutMs: 30000,
   streamInactivityTimeoutMs: 5000,
+  streamToolCallIdleTimeoutMs: 3000,
 })
 
 const cbPresets = [
-  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 10000 },
-  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000 },
-  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 10000, streamInactivityTimeoutMs: 3000 },
-  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000 },
+  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 10000, streamToolCallIdleTimeoutMs: 5000 },
+  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000, streamToolCallIdleTimeoutMs: 3000 },
+  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 10000, streamInactivityTimeoutMs: 3000, streamToolCallIdleTimeoutMs: 2000 },
+  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000, streamToolCallIdleTimeoutMs: 3000 },
 ]
 
 const matchPreset = () => {
   for (const p of cbPresets) {
     if (p.key === 'custom') continue
-    if (cbForm.windowSize === p.windowSize && cbForm.failureThreshold === p.failureThreshold && cbForm.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && cbForm.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && cbForm.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs) {
+    if (cbForm.windowSize === p.windowSize && cbForm.failureThreshold === p.failureThreshold && cbForm.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && cbForm.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && cbForm.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs && cbForm.streamToolCallIdleTimeoutMs === p.streamToolCallIdleTimeoutMs) {
       activePreset.value = p.key
       return
     }
@@ -1773,6 +1794,7 @@ const applyPreset = (preset: typeof cbPresets[number]) => {
   cbForm.consecutiveFailuresThreshold = preset.consecutiveFailuresThreshold
   cbForm.streamFirstContentTimeoutMs = preset.streamFirstContentTimeoutMs
   cbForm.streamInactivityTimeoutMs = preset.streamInactivityTimeoutMs
+  cbForm.streamToolCallIdleTimeoutMs = preset.streamToolCallIdleTimeoutMs
   activePreset.value = preset.key
 }
 
@@ -1788,6 +1810,8 @@ const onSliderChange = (field: string, event: Event) => {
     cbForm.streamFirstContentTimeoutMs = val
   } else if (field === 'streamInactivityTimeoutMs') {
     cbForm.streamInactivityTimeoutMs = val
+  } else if (field === 'streamToolCallIdleTimeoutMs') {
+    cbForm.streamToolCallIdleTimeoutMs = val
   }
   matchPreset()
 }
@@ -1800,6 +1824,7 @@ const openCircuitBreakerDialog = async () => {
     cbForm.consecutiveFailuresThreshold = params.consecutiveFailuresThreshold
     cbForm.streamFirstContentTimeoutMs = params.streamFirstContentTimeoutMs && params.streamFirstContentTimeoutMs >= 5000 ? params.streamFirstContentTimeoutMs : 30000
     cbForm.streamInactivityTimeoutMs = params.streamInactivityTimeoutMs && params.streamInactivityTimeoutMs >= 1000 ? params.streamInactivityTimeoutMs : 5000
+    cbForm.streamToolCallIdleTimeoutMs = params.streamToolCallIdleTimeoutMs && params.streamToolCallIdleTimeoutMs >= 1000 ? params.streamToolCallIdleTimeoutMs : 3000
     matchPreset()
   } catch (e) {
     console.error('Failed to load circuit breaker config:', e)
@@ -1816,6 +1841,7 @@ const saveCircuitBreaker = async () => {
       consecutiveFailuresThreshold: cbForm.consecutiveFailuresThreshold,
       streamFirstContentTimeoutMs: cbForm.streamFirstContentTimeoutMs,
       streamInactivityTimeoutMs: cbForm.streamInactivityTimeoutMs,
+      streamToolCallIdleTimeoutMs: cbForm.streamToolCallIdleTimeoutMs,
     })
     circuitBreakerDialogOpen.value = false
     showToast(t('toast.circuitBreakerSaved'), 'success')
