@@ -343,11 +343,11 @@ func sendAndCheckStream(ctx context.Context, channel *config.UpstreamConfig, req
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		common.LogUpstreamResponse(resp, bodyBytes, envCfg, apiType)
+		common.LogUpstreamResponse(nil, resp, bodyBytes, envCfg, apiType)
 		return false, false, resp.StatusCode, bodyBytes, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	common.LogUpstreamResponseHeaders(resp, envCfg, apiType)
+	common.LogUpstreamResponseHeaders(nil, resp, envCfg, apiType)
 
 	provider := getCapabilityStreamProvider(protocol)
 	if provider == nil {
@@ -356,7 +356,7 @@ func sendAndCheckStream(ctx context.Context, channel *config.UpstreamConfig, req
 
 	responseLogBuffer := common.NewLimitedLogBuffer(common.MaxUpstreamResponseLogBytes)
 	logFailureResponseBody := func() {
-		common.LogUpstreamResponseBody(responseLogBuffer.Bytes(), envCfg, apiType)
+		common.LogUpstreamResponseBody(nil, responseLogBuffer.Bytes(), envCfg, apiType)
 	}
 	bodyReader := io.Reader(resp.Body)
 	if envCfg.EnableResponseLogs && envCfg.IsDevelopment() {

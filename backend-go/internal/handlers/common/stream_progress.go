@@ -1,7 +1,6 @@
 package common
 
 import (
-	"log"
 	"time"
 
 	"github.com/BenedictKing/ccx/internal/utils"
@@ -12,6 +11,7 @@ import (
 type StreamProgressLogger struct {
 	component   string
 	enabled     bool
+	logTag      string
 	startTime   time.Time
 	lastLogTime time.Time
 
@@ -21,13 +21,18 @@ type StreamProgressLogger struct {
 	lastChars   int
 }
 
-func NewStreamProgressLogger(component string, startTime time.Time, enabled bool) *StreamProgressLogger {
+func NewStreamProgressLogger(component string, startTime time.Time, enabled bool, logTags ...string) *StreamProgressLogger {
 	if startTime.IsZero() {
 		startTime = time.Now()
+	}
+	logTag := ""
+	if len(logTags) > 0 {
+		logTag = logTags[0]
 	}
 	return &StreamProgressLogger{
 		component:   component,
 		enabled:     enabled,
+		logTag:      logTag,
 		startTime:   startTime,
 		lastLogTime: startTime,
 	}
@@ -92,7 +97,7 @@ func (l *StreamProgressLogger) log(now time.Time, status string) {
 	windowTPS := float64(windowTokens) / windowSeconds
 	avgTPS := float64(l.totalTokens) / elapsedSeconds
 
-	log.Printf("[%s-Stream-Progress] status=%s elapsed=%dms windowTPS=%.2f avgTPS=%.2f windowTokens=%d totalTokens=%d windowChars=%d totalChars=%d",
+	logWithTag(l.logTag, "[%s-Stream-Progress] status=%s elapsed=%dms windowTPS=%.2f avgTPS=%.2f windowTokens=%d totalTokens=%d windowChars=%d totalChars=%d",
 		l.component,
 		status,
 		int(now.Sub(l.startTime).Milliseconds()),

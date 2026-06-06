@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -70,6 +69,11 @@ func CompactHandler(
 
 		// 提取对话标识用于 Trace 亲和性
 		userID := common.ExtractConversationID(c, bodyBytes)
+		var compactReq types.ResponsesRequest
+		if len(bodyBytes) > 0 {
+			_ = json.Unmarshal(bodyBytes, &compactReq)
+		}
+		common.SetRequestLogContext(c, userID, countResponsesUserMessages(compactReq.Input))
 
 		// 检查是否为多渠道模式
 		isMultiChannel := channelScheduler.IsMultiChannelMode(scheduler.ChannelKindResponses)
@@ -263,18 +267,18 @@ func tryCompactChannelWithAllKeys(
 		circuitState := metricsManager.GetKeyCircuitState(upstream.BaseURL, apiKey, metricsServiceType)
 		if circuitState == metrics.CircuitStateOpen {
 			failedKeys[apiKey] = true
-			log.Printf("[Compact-Circuit] 跳过 open 状态中的 Key: %s", utils.MaskAPIKey(apiKey))
+			common.RequestLogf(c, "[Compact-Circuit] 跳过 open 状态中的 Key: %s", utils.MaskAPIKey(apiKey))
 			continue
 		}
 		if circuitState == metrics.CircuitStateHalfOpen {
 			probeKey := upstream.BaseURL + "|" + apiKey
 			if !metricsManager.TryAcquireProbe(upstream.BaseURL, apiKey, metricsServiceType) {
 				failedKeys[apiKey] = true
-				log.Printf("[Compact-Circuit] 跳过 half-open 探针已占用的 Key: %s", utils.MaskAPIKey(apiKey))
+				common.RequestLogf(c, "[Compact-Circuit] 跳过 half-open 探针已占用的 Key: %s", utils.MaskAPIKey(apiKey))
 				continue
 			}
 			probeAcquired[probeKey] = true
-			log.Printf("[Compact-Circuit] 使用 half-open 探针 Key: %s", utils.MaskAPIKey(apiKey))
+			common.RequestLogf(c, "[Compact-Circuit] 使用 half-open 探针 Key: %s", utils.MaskAPIKey(apiKey))
 		}
 
 		attemptStart := time.Now()
@@ -351,10 +355,11 @@ func tryCompactWithKey(
 	utils.SetAuthenticationHeader(req.Header, apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	utils.ApplyCustomHeaders(req.Header, upstream.CustomHeaders)
+	req = common.WithRequestLogContext(req, c)
 
 	resp, err := common.SendRequest(req, upstream, envCfg, false, "Responses")
 	if err != nil {
-		log.Printf("[Compact-Local] 原生 compact 请求失败，回退本地 compact: %v", err)
+		common.RequestLogf(c, "[Compact-Local] 原生 compact 请求失败，回退本地 compact: %v", err)
 		return tryLocalCompactWithKey(c, upstream, apiKey, bodyBytes, envCfg, cfgManager, sessionManager)
 	}
 	defer resp.Body.Close()
@@ -363,13 +368,13 @@ func tryCompactWithKey(
 	respBody = utils.DecompressGzipIfNeeded(resp, respBody)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("[Compact-Local] 原生 compact 失败，回退本地 compact: status=%d", resp.StatusCode)
+		common.RequestLogf(c, "[Compact-Local] 原生 compact 失败，回退本地 compact: status=%d", resp.StatusCode)
 		localSuccess, localErr := tryLocalCompactWithKey(c, upstream, apiKey, bodyBytes, envCfg, cfgManager, sessionManager)
 		if localSuccess || localErr != nil {
 			return localSuccess, localErr
 		}
 
-		shouldFailover, _ := common.ShouldRetryWithNextKey(resp.StatusCode, respBody, cfgManager.GetFuzzyModeEnabled(), "Responses")
+		shouldFailover, _ := common.ShouldRetryWithNextKeyWithLogTag(resp.StatusCode, respBody, cfgManager.GetFuzzyModeEnabled(), "Responses", common.RequestLogTag(c))
 		return false, &compactError{status: resp.StatusCode, body: respBody, shouldFailover: shouldFailover}
 	}
 

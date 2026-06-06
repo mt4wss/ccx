@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -51,6 +50,10 @@ func needsLocalCompact(upstream *config.UpstreamConfig) bool {
 // PLACEHOLDER_FORMAT_TRANSCRIPT
 
 func formatItemsAsTranscript(items []types.ResponsesItem) string {
+	return formatItemsAsTranscriptWithLogTag(items, "")
+}
+
+func formatItemsAsTranscriptWithLogTag(items []types.ResponsesItem, logTag string) string {
 	var parts []string
 	for _, item := range items {
 		formatted := formatSingleItem(item)
@@ -59,7 +62,7 @@ func formatItemsAsTranscript(items []types.ResponsesItem) string {
 		}
 	}
 	transcript := strings.Join(parts, "\n\n---\n\n")
-	return truncateTranscript(transcript)
+	return truncateTranscriptWithLogTag(transcript, logTag)
 }
 
 func formatSingleItem(item types.ResponsesItem) string {
@@ -146,6 +149,10 @@ func extractContentText(content interface{}) string {
 }
 
 func truncateTranscript(transcript string) string {
+	return truncateTranscriptWithLogTag(transcript, "")
+}
+
+func truncateTranscriptWithLogTag(transcript string, logTag string) string {
 	runes := []rune(transcript)
 	if len(runes) <= localCompactMaxTranscriptRunes {
 		return transcript
@@ -153,7 +160,7 @@ func truncateTranscript(transcript string) string {
 	headSize := localCompactMaxTranscriptRunes * 20 / 100
 	tailSize := localCompactMaxTranscriptRunes * 75 / 100
 	omitted := len(runes) - headSize - tailSize
-	log.Printf("[Compact-Local] transcript 截断: before=%d after=%d", len(runes), headSize+tailSize)
+	common.LogWithTag(logTag, "[Compact-Local] transcript 截断: before=%d after=%d", len(runes), headSize+tailSize)
 	return string(runes[:headSize]) +
 		fmt.Sprintf("\n\n[... omitted %d characters during local compact ...]\n\n", omitted) +
 		string(runes[len(runes)-tailSize:])
@@ -170,6 +177,10 @@ func truncateRunes(s string, max int) string {
 // PLACEHOLDER_BUILD_REQUEST
 
 func buildLocalCompactRequestBody(originalBody []byte, stream bool, sessionManager *session.SessionManager) ([]byte, error) {
+	return buildLocalCompactRequestBodyWithLogTag(originalBody, stream, sessionManager, "")
+}
+
+func buildLocalCompactRequestBodyWithLogTag(originalBody []byte, stream bool, sessionManager *session.SessionManager, logTag string) ([]byte, error) {
 	var originalReq types.ResponsesRequest
 	if err := json.Unmarshal(originalBody, &originalReq); err != nil {
 		return nil, fmt.Errorf("解析 compact 请求失败: %w", err)
@@ -184,7 +195,7 @@ func buildLocalCompactRequestBody(originalBody []byte, stream bool, sessionManag
 		if err == nil && len(sess.Messages) > 0 {
 			allItems = append(allItems, sess.Messages...)
 		} else {
-			log.Printf("[Compact-Local] previous_response_id 未命中本地 session: %s", originalReq.PreviousResponseID)
+			common.LogWithTag(logTag, "[Compact-Local] previous_response_id 未命中本地 session: %s", originalReq.PreviousResponseID)
 		}
 	}
 
@@ -199,7 +210,7 @@ func buildLocalCompactRequestBody(originalBody []byte, stream bool, sessionManag
 		return nil, fmt.Errorf("无法本地 compact: input 为空")
 	}
 
-	transcript := formatItemsAsTranscript(allItems)
+	transcript := formatItemsAsTranscriptWithLogTag(allItems, logTag)
 
 	maxTokens := localCompactDefaultMaxTokens
 	if originalReq.MaxTokens > 0 && originalReq.MaxTokens < maxTokens {
@@ -245,10 +256,10 @@ func tryLocalCompactWithKey(
 	}
 
 	stream := originalReq.Stream
-	log.Printf("[Compact-Local] 使用本地 compact: serviceType=%s model=%s stream=%v", upstream.ServiceType, originalReq.Model, stream)
+	common.RequestLogf(c, "[Compact-Local] 使用本地 compact: serviceType=%s model=%s stream=%v", upstream.ServiceType, originalReq.Model, stream)
 
 	// 构建本地 compact 请求体
-	localBody, err := buildLocalCompactRequestBody(bodyBytes, stream, sessionManager)
+	localBody, err := buildLocalCompactRequestBodyWithLogTag(bodyBytes, stream, sessionManager, common.RequestLogTag(c))
 	if err != nil {
 		return false, &compactError{status: 400, body: []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())), shouldFailover: false, err: err}
 	}
@@ -259,6 +270,7 @@ func tryLocalCompactWithKey(
 	if err != nil {
 		return false, &compactError{status: 500, body: []byte(`{"error":"构建本地 compact 上游请求失败"}`), shouldFailover: true, err: err}
 	}
+	req = common.WithRequestLogContext(req, c)
 
 	// 发送请求
 	resp, err := common.SendRequest(req, upstream, envCfg, stream, "Responses")
@@ -271,7 +283,7 @@ func tryLocalCompactWithKey(
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
 		respBody = utils.DecompressGzipIfNeeded(resp, respBody)
-		shouldFailover, _ := common.ShouldRetryWithNextKey(resp.StatusCode, respBody, cfgManager.GetFuzzyModeEnabled(), "Responses")
+		shouldFailover, _ := common.ShouldRetryWithNextKeyWithLogTag(resp.StatusCode, respBody, cfgManager.GetFuzzyModeEnabled(), "Responses", common.RequestLogTag(c))
 		return false, &compactError{status: resp.StatusCode, body: respBody, shouldFailover: shouldFailover}
 	}
 

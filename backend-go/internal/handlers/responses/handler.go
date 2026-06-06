@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -66,6 +65,7 @@ func Handler(
 		// 统计 user 输入用于驾驶舱标题与轮数
 		c.Set("lastUserMessage", extractLastResponsesUserInput(responsesReq.Input))
 		c.Set("userMessageCount", countResponsesUserMessages(responsesReq.Input))
+		common.SetRequestLogContext(c, userID, countResponsesUserMessages(responsesReq.Input))
 
 		// 记录原始请求信息（仅在入口处记录一次）
 		common.LogOriginalRequest(c, bodyBytes, envCfg, "Responses")
@@ -241,7 +241,7 @@ func handleSingleChannel(
 		},
 		func(apiKey string) {
 			if err := cfgManager.DeprioritizeAPIKey(apiKey); err != nil {
-				log.Printf("[Responses-Key] 警告: 密钥降级失败: %v", err)
+				common.RequestLogf(c, "[Responses-Key] 警告: 密钥降级失败: %v", err)
 			}
 		},
 		nil,
@@ -290,7 +290,7 @@ func handleSingleChannel(
 		return
 	}
 
-	log.Printf("[Responses-Error] 所有 Responses API密钥都失败了")
+	common.RequestLogf(c, "[Responses-Error] 所有 Responses API密钥都失败了")
 	common.HandleAllKeysFailed(c, cfgManager.GetFuzzyModeEnabled(), lastFailoverError, lastError, "Responses")
 }
 
@@ -335,8 +335,8 @@ func handleSuccess(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Responses-Timing] Responses 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponse(resp, bodyBytes, envCfg, "Responses")
+		common.RequestLogf(c, "[Responses-Timing] Responses 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponse(c, resp, bodyBytes, envCfg, "Responses")
 	}
 
 	providerResp := &types.ProviderResponse{
@@ -353,14 +353,14 @@ func handleSuccess(
 		if len(preview) > 100 {
 			preview = preview[:100]
 		}
-		log.Printf("[Responses-InvalidBody] 响应体解析失败: %v, body前100字节: %s", err, preview)
+		common.RequestLogf(c, "[Responses-InvalidBody] 响应体解析失败: %v, body前100字节: %s", err, preview)
 		return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 	}
 
 	// 空响应拦截（仅 Fuzzy 模式）：上游 200 但 output 语义为空，
 	// Header 未发送，可安全 failover 到下一个 Key/BaseURL/渠道
 	if fuzzyMode && common.IsResponsesResponseEmpty(responsesResp) {
-		log.Printf("[Responses-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
+		common.RequestLogf(c, "[Responses-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
 		return nil, common.ErrEmptyNonStreamResponse
 	}
 
@@ -385,7 +385,7 @@ func handleSuccess(
 	// Token 补全逻辑
 	originalUsage := responsesResp.Usage
 
-	patchResponsesUsage(responsesResp, originalRequestJSON, envCfg)
+	patchResponsesUsageWithContext(c, responsesResp, originalRequestJSON, envCfg)
 
 	// 更新会话
 	if originalReq.Store == nil || *originalReq.Store {
@@ -459,6 +459,10 @@ func metricsUsageFromResponsesUsage(usage types.ResponsesUsage, promptTokensTota
 
 // patchResponsesUsage 补全 Responses 响应的 Token 统计
 func patchResponsesUsage(resp *types.ResponsesResponse, requestBody []byte, envCfg *config.EnvConfig) {
+	patchResponsesUsageWithContext(nil, resp, requestBody, envCfg)
+}
+
+func patchResponsesUsageWithContext(c *gin.Context, resp *types.ResponsesResponse, requestBody []byte, envCfg *config.EnvConfig) {
 	// 检查是否有 Claude 原生缓存 token（有时才跳过 input_tokens 修补）
 	// 仅检测 Claude 原生字段：cache_creation_input_tokens, cache_read_input_tokens,
 	// cache_creation_5m_input_tokens, cache_creation_1h_input_tokens
@@ -487,7 +491,7 @@ func patchResponsesUsage(resp *types.ResponsesResponse, requestBody []byte, envC
 			resp.Usage.CacheCreation1hInputTokens,
 		)
 		if envCfg.EnableResponseLogs {
-			log.Printf("[Responses-Token] 上游无Usage, 本地估算: input=%d, output=%d", estimatedInput, estimatedOutput)
+			common.RequestLogf(c, "[Responses-Token] 上游无Usage, 本地估算: input=%d, output=%d", estimatedInput, estimatedOutput)
 		}
 		return
 	}
@@ -520,10 +524,10 @@ func patchResponsesUsage(resp *types.ResponsesResponse, requestBody []byte, envC
 
 	if envCfg.EnableResponseLogs {
 		if patched {
-			log.Printf("[Responses-Token] 虚假值修补: InputTokens=%d->%d, OutputTokens=%d->%d",
+			common.RequestLogf(c, "[Responses-Token] 虚假值修补: InputTokens=%d->%d, OutputTokens=%d->%d",
 				originalInput, resp.Usage.InputTokens, originalOutput, resp.Usage.OutputTokens)
 		}
-		log.Printf("[Responses-Token] InputTokens=%d, OutputTokens=%d, TotalTokens=%d, CacheCreation=%d, CacheRead=%d, CacheCreation5m=%d, CacheCreation1h=%d, CacheTTL=%s",
+		common.RequestLogf(c, "[Responses-Token] InputTokens=%d, OutputTokens=%d, TotalTokens=%d, CacheCreation=%d, CacheRead=%d, CacheCreation5m=%d, CacheCreation1h=%d, CacheTTL=%s",
 			resp.Usage.InputTokens, resp.Usage.OutputTokens, resp.Usage.TotalTokens,
 			resp.Usage.CacheCreationInputTokens, resp.Usage.CacheReadInputTokens,
 			resp.Usage.CacheCreation5mInputTokens, resp.Usage.CacheCreation1hInputTokens,
@@ -606,8 +610,8 @@ func handleStreamSuccess(
 ) (*types.Usage, error) {
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Responses-Stream] Responses 流式响应开始: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponseHeaders(resp, envCfg, "Responses")
+		common.RequestLogf(c, "[Responses-Stream] Responses 流式响应开始: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponseHeaders(c, resp, envCfg, "Responses")
 	}
 
 	var synthesizer *utils.StreamSynthesizer
@@ -833,7 +837,7 @@ func handleStreamSuccess(
 		case <-firstContentChan:
 			// 阶段A超时：首个有效内容等待超时
 			if timeouts.FirstContentTimeoutMs > 0 {
-				log.Printf("[Responses-FirstContentTimeout] 流式首字超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
+				common.RequestLogf(c, "[Responses-FirstContentTimeout] 流式首字超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
 				close(scanDone)
 				return nil, common.ErrStreamFirstContentTimeout
 			}
@@ -842,7 +846,7 @@ func handleStreamSuccess(
 
 		case <-inactivityChan:
 			// 阶段B超时：首字后断流
-			log.Printf("[Responses-StreamStalled] 流式断流: 首字后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
+			common.RequestLogf(c, "[Responses-StreamStalled] 流式断流: 首字后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
 			close(scanDone)
 			return nil, common.ErrStreamStalled
 		}
@@ -853,7 +857,7 @@ func handleStreamSuccess(
 
 	// 空响应：Header 未发送，可安全重试
 	if preflightEmpty {
-		log.Printf("[Responses-EmptyResponse] 上游返回空响应 (缓冲行数: %d, 诊断: %s)，触发重试", len(bufferedLines), preflightDiagnostic)
+		common.RequestLogf(c, "[Responses-EmptyResponse] 上游返回空响应 (缓冲行数: %d, 诊断: %s)，触发重试", len(bufferedLines), preflightDiagnostic)
 		close(scanDone) // 通知 scanner goroutine 退出
 		if blacklistReason != "" {
 			return nil, &common.ErrBlacklistKey{Reason: blacklistReason, Message: blacklistMessage}
@@ -890,7 +894,7 @@ func handleStreamSuccess(
 	promptTokensTotal := 0
 	completedEventSent := false
 	eventsSentCount := 0
-	progress := common.NewStreamProgressLogger("Responses", startTime, envCfg.ShouldLog("info"))
+	progress := common.NewStreamProgressLogger("Responses", startTime, envCfg.ShouldLog("info"), common.RequestLogTag(c))
 
 	// processLine 处理单行数据（复用于缓冲行回放和后续读取），并返回转换后的 Responses 事件用于 watchdog 状态判断。
 	processLine := func(line string) []string {
@@ -953,13 +957,13 @@ func handleStreamSuccess(
 			}
 
 			// 检测并收集 usage
-			detected, needPatch, usageData := checkResponsesEventUsage(event, envCfg.EnableResponseLogs && envCfg.ShouldLog("debug"))
+			detected, needPatch, usageData := checkResponsesEventUsageWithLogTag(event, envCfg.EnableResponseLogs && envCfg.ShouldLog("debug"), common.RequestLogTag(c))
 			if detected {
 				if !hasUsage {
 					hasUsage = true
 					needTokenPatch = needPatch
 					if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") && needPatch {
-						log.Printf("[Responses-Stream-Token] 检测到虚假值, 延迟到流结束修补")
+						common.RequestLogf(c, "[Responses-Stream-Token] 检测到虚假值, 延迟到流结束修补")
 					}
 				}
 				updateResponsesStreamUsage(&collectedUsage, usageData)
@@ -982,7 +986,7 @@ func handleStreamSuccess(
 				if !hasUsage {
 					// 上游完全没有 usage，注入本地估算
 					var injectedInput, injectedOutput int
-					eventToSend, injectedInput, injectedOutput = injectResponsesUsageToCompletedEvent(event, originalRequestJSON, outputTextBuffer.String(), envCfg)
+					eventToSend, injectedInput, injectedOutput = injectResponsesUsageToCompletedEventWithLogTag(event, originalRequestJSON, outputTextBuffer.String(), envCfg, common.RequestLogTag(c))
 					// 更新 collectedUsage 以便最终日志输出
 					collectedUsage.InputTokens = injectedInput
 					collectedUsage.OutputTokens = injectedOutput
@@ -995,11 +999,11 @@ func handleStreamSuccess(
 						collectedUsage.CacheCreation1hInputTokens,
 					)
 					if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-						log.Printf("[Responses-Stream-Token] 上游无usage, 注入本地估算: input=%d, output=%d", injectedInput, injectedOutput)
+						common.RequestLogf(c, "[Responses-Stream-Token] 上游无usage, 注入本地估算: input=%d, output=%d", injectedInput, injectedOutput)
 					}
 				} else if needTokenPatch {
 					// 需要修补虚假值
-					eventToSend = patchResponsesCompletedEventUsage(event, originalRequestJSON, outputTextBuffer.String(), &collectedUsage, envCfg)
+					eventToSend = patchResponsesCompletedEventUsageWithLogTag(event, originalRequestJSON, outputTextBuffer.String(), &collectedUsage, envCfg, common.RequestLogTag(c))
 				}
 			}
 
@@ -1009,9 +1013,9 @@ func handleStreamSuccess(
 				if err != nil {
 					clientGone = true
 					if !isClientDisconnectError(err) {
-						log.Printf("[Responses-Stream] 警告: 流式响应传输错误: %v", err)
+						common.RequestLogf(c, "[Responses-Stream] 警告: 流式响应传输错误: %v", err)
 					} else if envCfg.ShouldLog("info") {
-						log.Printf("[Responses-Stream] 客户端中断连接 (正常行为)，继续接收上游数据...")
+						common.RequestLogf(c, "[Responses-Stream] 客户端中断连接 (正常行为)，继续接收上游数据...")
 					}
 				} else {
 					eventsSentCount++
@@ -1030,7 +1034,7 @@ func handleStreamSuccess(
 		wasPending := postCommitToolTracker.HasPendingToolCall()
 		for _, event := range events {
 			if malformed, name := postCommitToolTracker.ProcessResponsesEvent(event); malformed && envCfg.ShouldLog("info") {
-				log.Printf("[Responses-Stream-ToolCall] 检测到畸形工具调用: %s", name)
+				common.RequestLogf(c, "[Responses-Stream-ToolCall] 检测到畸形工具调用: %s", name)
 			}
 		}
 		if postCommitToolTracker.HasPendingToolCall() != wasPending {
@@ -1110,9 +1114,9 @@ func handleStreamSuccess(
 		case <-postCommitChan:
 			progress.Finish("stalled")
 			if postCommitToolTracker.HasPendingToolCall() {
-				log.Printf("[Responses-StreamStalled] 流式断流: 工具调用阶段空闲 %dms 无上游输出（Header 已发送）", activePostCommitTimeoutMs)
+				common.RequestLogf(c, "[Responses-StreamStalled] 流式断流: 工具调用阶段空闲 %dms 无上游输出（Header 已发送）", activePostCommitTimeoutMs)
 			} else {
-				log.Printf("[Responses-StreamStalled] 流式断流: Header 已发送后 %dms 无上游输出", activePostCommitTimeoutMs)
+				common.RequestLogf(c, "[Responses-StreamStalled] 流式断流: Header 已发送后 %dms 无上游输出", activePostCommitTimeoutMs)
 			}
 			close(scanDone)
 			return nil, common.ErrStreamPostCommitStalled
@@ -1132,7 +1136,7 @@ streamEnd:
 
 	// 兜底：如果上游未发送终止符（如 MiniMax 不发 [DONE]），补发 response.completed
 	if !completedEventSent && !clientGone {
-		log.Printf("[Responses-Stream] 上游未发送终止符，补发 response.completed (upstreamType=%s)", upstreamType)
+		common.RequestLogf(c, "[Responses-Stream] 上游未发送终止符，补发 response.completed (upstreamType=%s)", upstreamType)
 
 		var fallbackEvents []string
 		if needConvert {
@@ -1160,7 +1164,7 @@ streamEnd:
 				completedEventSent = true
 				if !hasUsage {
 					var injectedInput, injectedOutput int
-					eventToSend, injectedInput, injectedOutput = injectResponsesUsageToCompletedEvent(event, originalRequestJSON, outputTextBuffer.String(), envCfg)
+					eventToSend, injectedInput, injectedOutput = injectResponsesUsageToCompletedEventWithLogTag(event, originalRequestJSON, outputTextBuffer.String(), envCfg, common.RequestLogTag(c))
 					collectedUsage.InputTokens = injectedInput
 					collectedUsage.OutputTokens = injectedOutput
 					collectedUsage.TotalTokens = calculateTotalTokensWithCache(
@@ -1172,7 +1176,7 @@ streamEnd:
 						collectedUsage.CacheCreation1hInputTokens,
 					)
 				} else if needTokenPatch {
-					eventToSend = patchResponsesCompletedEventUsage(event, originalRequestJSON, outputTextBuffer.String(), &collectedUsage, envCfg)
+					eventToSend = patchResponsesCompletedEventUsageWithLogTag(event, originalRequestJSON, outputTextBuffer.String(), &collectedUsage, envCfg, common.RequestLogTag(c))
 				}
 			}
 			if _, err := c.Writer.Write([]byte(eventToSend)); err == nil && flusher != nil {
@@ -1183,19 +1187,19 @@ streamEnd:
 
 	if err := scanner.Err(); err != nil {
 		if !isClientDisconnectError(err) {
-			log.Printf("[Responses-Stream] 警告: 流式响应读取错误: %v", err)
+			common.RequestLogf(c, "[Responses-Stream] 警告: 流式响应读取错误: %v", err)
 		} else if envCfg.ShouldLog("info") {
-			log.Printf("[Responses-Stream] 上游读取因客户端取消而结束")
+			common.RequestLogf(c, "[Responses-Stream] 上游读取因客户端取消而结束")
 		}
 	}
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Responses-Stream] Responses 流式响应完成: %dms", responseTime)
+		common.RequestLogf(c, "[Responses-Stream] Responses 流式响应完成: %dms", responseTime)
 
 		// 输出 Token 统计
 		if hasUsage || collectedUsage.InputTokens > 0 || collectedUsage.OutputTokens > 0 {
-			log.Printf("[Responses-Stream-Token] InputTokens=%d, OutputTokens=%d, CacheCreation=%d, CacheRead=%d, CacheCreation5m=%d, CacheCreation1h=%d, CacheTTL=%s",
+			common.RequestLogf(c, "[Responses-Stream-Token] InputTokens=%d, OutputTokens=%d, CacheCreation=%d, CacheRead=%d, CacheCreation5m=%d, CacheCreation1h=%d, CacheTTL=%s",
 				collectedUsage.InputTokens, collectedUsage.OutputTokens,
 				collectedUsage.CacheCreationInputTokens, collectedUsage.CacheReadInputTokens,
 				collectedUsage.CacheCreation5mInputTokens, collectedUsage.CacheCreation1hInputTokens,
@@ -1207,12 +1211,12 @@ streamEnd:
 				synthesizedContent := synthesizer.GetSynthesizedContent()
 				parseFailed := synthesizer.IsParseFailed()
 				if synthesizedContent != "" && !parseFailed {
-					log.Printf("[Responses-Stream] 上游流式响应合成内容:\n%s", strings.TrimSpace(synthesizedContent))
+					common.RequestLogf(c, "[Responses-Stream] 上游流式响应合成内容:\n%s", strings.TrimSpace(synthesizedContent))
 				} else if logBuffer.Len() > 0 {
-					log.Printf("[Responses-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
+					common.RequestLogf(c, "[Responses-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
 				}
 			} else if logBuffer.Len() > 0 {
-				log.Printf("[Responses-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
+				common.RequestLogf(c, "[Responses-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
 			}
 		}
 	}
@@ -1307,6 +1311,10 @@ func extractResponsesTextFromEvent(event string, buf *bytes.Buffer) {
 
 // checkResponsesEventUsage 检测 Responses 事件是否包含 usage
 func checkResponsesEventUsage(event string, enableLog bool) (bool, bool, responsesStreamUsage) {
+	return checkResponsesEventUsageWithLogTag(event, enableLog, "")
+}
+
+func checkResponsesEventUsageWithLogTag(event string, enableLog bool, logTag string) (bool, bool, responsesStreamUsage) {
 	lines := strings.Split(event, "\n")
 	for _, line := range lines {
 		// 支持 "data:" 和 "data: " 两种格式（有些上游不带空格）
@@ -1344,15 +1352,15 @@ func checkResponsesEventUsage(event string, enableLog bool) (bool, bool, respons
 					}
 
 					if enableLog {
-						log.Printf("[Responses-Stream-Token] response.completed: InputTokens=%d, OutputTokens=%d, TotalTokens=%d, CacheCreation=%d, CacheRead=%d, HasClaudeCache=%v, 需补全=%v",
+						common.LogWithTag(logTag, "[Responses-Stream-Token] response.completed: InputTokens=%d, OutputTokens=%d, TotalTokens=%d, CacheCreation=%d, CacheRead=%d, HasClaudeCache=%v, 需补全=%v",
 							usageData.InputTokens, usageData.OutputTokens, usageData.TotalTokens, usageData.CacheCreationInputTokens, usageData.CacheReadInputTokens, usageData.HasClaudeCache, needPatch)
 					}
 					return true, needPatch, usageData
 				} else if enableLog {
-					log.Printf("[Responses-Stream-Token] response.completed 事件中无 usage 字段")
+					common.LogWithTag(logTag, "[Responses-Stream-Token] response.completed 事件中无 usage 字段")
 				}
 			} else if enableLog {
-				log.Printf("[Responses-Stream-Token] response.completed 事件中无 response 字段")
+				common.LogWithTag(logTag, "[Responses-Stream-Token] response.completed 事件中无 response 字段")
 			}
 		}
 	}
@@ -1487,13 +1495,17 @@ func calculateTotalTokensWithCache(inputTokens, outputTokens, cacheRead, cacheCr
 // injectResponsesUsageToCompletedEvent 向 response.completed 事件注入 usage
 // 返回: 修改后的事件字符串, 估算的 inputTokens, 估算的 outputTokens
 func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outputText string, envCfg *config.EnvConfig) (string, int, int) {
+	return injectResponsesUsageToCompletedEventWithLogTag(event, requestBody, outputText, envCfg, "")
+}
+
+func injectResponsesUsageToCompletedEventWithLogTag(event string, requestBody []byte, outputText string, envCfg *config.EnvConfig, logTag string) (string, int, int) {
 	inputTokens := utils.EstimateResponsesRequestTokens(requestBody)
 	outputTokens := utils.EstimateTokens(outputText)
 	totalTokens := calculateTotalTokensWithCache(inputTokens, outputTokens, 0, 0, 0, 0)
 
 	// 调试日志：记录估算开始
 	if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-		log.Printf("[Responses-Stream-Token] injectUsage 开始: inputTokens=%d, outputTokens=%d, event长度=%d",
+		common.LogWithTag(logTag, "[Responses-Stream-Token] injectUsage 开始: inputTokens=%d, outputTokens=%d, event长度=%d",
 			inputTokens, outputTokens, len(event))
 	}
 
@@ -1523,7 +1535,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
 			// 调试日志：JSON 解析失败
 			if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-				log.Printf("[Responses-Stream-Token] JSON解析失败: %v, 内容前200字符: %.200s", err, jsonStr)
+				common.LogWithTag(logTag, "[Responses-Stream-Token] JSON解析失败: %v, 内容前200字符: %.200s", err, jsonStr)
 			}
 			result.WriteString(line)
 			result.WriteString("\n")
@@ -1537,7 +1549,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 			if !ok {
 				// response 字段缺失或类型错误，创建一个新的
 				if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-					log.Printf("[Responses-Stream-Token] response字段缺失, 创建新的response对象")
+					common.LogWithTag(logTag, "[Responses-Stream-Token] response字段缺失, 创建新的response对象")
 				}
 				response = make(map[string]interface{})
 				data["response"] = response
@@ -1553,7 +1565,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 			patchedJSON, err := json.Marshal(data)
 			if err != nil {
 				if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-					log.Printf("[Responses-Stream-Token] JSON序列化失败: %v", err)
+					common.LogWithTag(logTag, "[Responses-Stream-Token] JSON序列化失败: %v", err)
 				}
 				result.WriteString(line)
 				result.WriteString("\n")
@@ -1561,7 +1573,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 			}
 
 			if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-				log.Printf("[Responses-Stream-Token] 注入本地估算成功: InputTokens=%d, OutputTokens=%d, TotalTokens=%d",
+				common.LogWithTag(logTag, "[Responses-Stream-Token] 注入本地估算成功: InputTokens=%d, OutputTokens=%d, TotalTokens=%d",
 					inputTokens, outputTokens, totalTokens)
 			}
 
@@ -1577,7 +1589,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 	// 如果没有成功注入，可能是 SSE 格式不同，尝试直接在整个 event 中查找并替换
 	if !injected {
 		if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-			log.Printf("[Responses-Stream-Token] 逐行解析未找到, 尝试整体解析 event")
+			common.LogWithTag(logTag, "[Responses-Stream-Token] 逐行解析未找到, 尝试整体解析 event")
 		}
 
 		// 尝试从 event 中提取 JSON 部分（可能是多行格式）
@@ -1639,7 +1651,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 						}
 
 						if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") {
-							log.Printf("[Responses-Stream-Token] 整体解析注入成功: InputTokens=%d, OutputTokens=%d",
+							common.LogWithTag(logTag, "[Responses-Stream-Token] 整体解析注入成功: InputTokens=%d, OutputTokens=%d",
 								inputTokens, outputTokens)
 						}
 					}
@@ -1656,7 +1668,7 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 			if len(eventPreview) > 500 {
 				eventPreview = eventPreview[:500] + "..."
 			}
-			log.Printf("[Responses-Stream-Token] 警告: 未找到 response.completed 事件进行注入, event内容: %s", eventPreview)
+			common.LogWithTag(logTag, "[Responses-Stream-Token] 警告: 未找到 response.completed 事件进行注入, event内容: %s", eventPreview)
 		}
 		return event, inputTokens, outputTokens
 	}
@@ -1666,6 +1678,10 @@ func injectResponsesUsageToCompletedEvent(event string, requestBody []byte, outp
 
 // patchResponsesCompletedEventUsage 修补 response.completed 事件中的 usage
 func patchResponsesCompletedEventUsage(event string, requestBody []byte, outputText string, collected *responsesStreamUsage, envCfg *config.EnvConfig) string {
+	return patchResponsesCompletedEventUsageWithLogTag(event, requestBody, outputText, collected, envCfg, "")
+}
+
+func patchResponsesCompletedEventUsageWithLogTag(event string, requestBody []byte, outputText string, collected *responsesStreamUsage, envCfg *config.EnvConfig, logTag string) string {
 	var result strings.Builder
 	lines := strings.Split(event, "\n")
 
@@ -1728,7 +1744,7 @@ func patchResponsesCompletedEventUsage(event string, requestBody []byte, outputT
 					}
 
 					if envCfg.EnableResponseLogs && envCfg.ShouldLog("debug") && patched {
-						log.Printf("[Responses-Stream-Token] 虚假值修补: InputTokens=%d->%d, OutputTokens=%d->%d",
+						common.LogWithTag(logTag, "[Responses-Stream-Token] 虚假值修补: InputTokens=%d->%d, OutputTokens=%d->%d",
 							originalInput, collected.InputTokens, originalOutput, collected.OutputTokens)
 					}
 				}

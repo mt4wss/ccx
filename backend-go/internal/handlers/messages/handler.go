@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -38,18 +37,26 @@ func Handler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, channel
 			return
 		}
 
+		earlyAffinityBody := common.NormalizeMetadataUserID(bodyBytes)
+		earlyUserID := utils.ExtractUnifiedSessionID(c, earlyAffinityBody)
+		var earlyReq types.ClaudeRequest
+		if len(bodyBytes) > 0 {
+			_ = json.Unmarshal(bodyBytes, &earlyReq)
+		}
+		common.SetRequestLogContext(c, earlyUserID, countUserMessages(earlyReq.Messages))
+
 		// 预处理：移除空 signature 字段，预防 400 错误
 		// modified 表示请求体是否被修改，详细日志由 RemoveEmptySignatures 内部记录
-		bodyBytes, modified := common.RemoveEmptySignatures(bodyBytes, envCfg.EnableRequestLogs, "Messages")
+		bodyBytes, modified := common.RemoveEmptySignaturesWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Messages")
 		_ = modified // 保留以便未来扩展（如需在 handler 层面做额外处理）
 
 		// 预处理：清理历史 thinking 内容块/字段，预防上游参数校验 400
-		bodyBytes, thinkingModified := common.SanitizeMalformedThinkingBlocks(bodyBytes, envCfg.EnableRequestLogs, "Messages")
+		bodyBytes, thinkingModified := common.SanitizeMalformedThinkingBlocksWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Messages")
 		_ = thinkingModified // 保留以便未来扩展（如需在 handler 层面做额外处理）
 
 		// 预处理：移除 system 中的 cch= 计费参数
 		if cfgManager.GetStripBillingHeader() {
-			bodyBytes, _ = common.RemoveBillingHeaders(bodyBytes, envCfg.EnableRequestLogs, "Messages")
+			bodyBytes, _ = common.RemoveBillingHeadersWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Messages")
 		}
 
 		// 入口保留原始请求体；按渠道在发往上游前决定是否规范化 metadata.user_id
@@ -64,10 +71,11 @@ func Handler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, channel
 		// 提取统一会话标识用于 Trace 亲和性（保持 metadata.user_id 默认规范化后的既有路由语义）
 		affinityBody := common.NormalizeMetadataUserID(bodyBytes)
 		userID := utils.ExtractUnifiedSessionID(c, affinityBody)
+		common.SetRequestLogContext(c, userID, countUserMessages(claudeReq.Messages))
 
 		isTitleRequest := isClaudeCodeTitleRequest(bodyBytes)
 		if envCfg.ShouldLog("debug") && isTitleRequest {
-			log.Printf("[Messages-Title-Debug] 检测到 Claude Code title 请求: user=%s, model=%s, stream=%t",
+			common.RequestLogf(c, "[Messages-Title-Debug] 检测到 Claude Code title 请求: user=%s, model=%s, stream=%t",
 				scheduler.MaskUserIDForLog(userID), claudeReq.Model, claudeReq.Stream)
 		}
 
@@ -150,7 +158,7 @@ func handleMultiChannel(
 				},
 				func(apiKey string) {
 					if err := cfgManager.DeprioritizeAPIKey(apiKey); err != nil {
-						log.Printf("[Messages-Key] 警告: 密钥降级失败: %v", err)
+						common.RequestLogf(c, "[Messages-Key] 警告: 密钥降级失败: %v", err)
 					}
 				},
 				func(url string) {
@@ -191,7 +199,7 @@ func handleMultiChannel(
 			title := extractTitleFromResponseText(result.ResponseText)
 			updated := channelScheduler.UpdateConversationTitle(scheduler.ChannelKindMessages, userID, title)
 			if envCfg.ShouldLog("debug") {
-				log.Printf("[Messages-Title-Debug] title 更新结果: user=%s, title=%q, updated=%t, responseTextLen=%d",
+				common.RequestLogf(c, "[Messages-Title-Debug] title 更新结果: user=%s, title=%q, updated=%t, responseTextLen=%d",
 					scheduler.MaskUserIDForLog(userID), title, updated, len(result.ResponseText))
 			}
 		},
@@ -260,7 +268,7 @@ func handleSingleChannel(
 		},
 		func(apiKey string) {
 			if err := cfgManager.DeprioritizeAPIKey(apiKey); err != nil {
-				log.Printf("[Messages-Key] 警告: 密钥降级失败: %v", err)
+				common.RequestLogf(c, "[Messages-Key] 警告: 密钥降级失败: %v", err)
 			}
 		},
 		nil,
@@ -286,7 +294,7 @@ func handleSingleChannel(
 			channelScheduler.SetTraceAffinity(userID, channelIndex, scheduler.ChannelKindMessages)
 			channelScheduler.TrackConversation(scheduler.ChannelKindMessages, userID, claudeReq.Model, channelIndex, upstream.Name, "", lastUserMessage, userMessageCount)
 			if envCfg.ShouldLog("debug") {
-				log.Printf("[Messages-Conversation-Debug] 已追踪单渠道对话: user=%s, model=%s, channel=%d, userMessages=%d, hasFallbackTitle=%t",
+				common.RequestLogf(c, "[Messages-Conversation-Debug] 已追踪单渠道对话: user=%s, model=%s, channel=%d, userMessages=%d, hasFallbackTitle=%t",
 					scheduler.MaskUserIDForLog(userID), claudeReq.Model, channelIndex, userMessageCount, lastUserMessage != "")
 			}
 		} else {
@@ -294,14 +302,14 @@ func handleSingleChannel(
 			title := extractTitleFromResponseText(responseTextString(responseText))
 			updated := channelScheduler.UpdateConversationTitle(scheduler.ChannelKindMessages, userID, title)
 			if envCfg.ShouldLog("debug") {
-				log.Printf("[Messages-Title-Debug] 单渠道 title 更新结果: user=%s, title=%q, updated=%t, responseTextLen=%d",
+				common.RequestLogf(c, "[Messages-Title-Debug] 单渠道 title 更新结果: user=%s, title=%q, updated=%t, responseTextLen=%d",
 					scheduler.MaskUserIDForLog(userID), title, updated, len(responseTextString(responseText)))
 			}
 		}
 		return
 	}
 
-	log.Printf("[Messages-Error] 所有API密钥都失败了")
+	common.RequestLogf(c, "[Messages-Error] 所有API密钥都失败了")
 	common.HandleAllKeysFailed(c, cfgManager.GetFuzzyModeEnabled(), lastFailoverError, lastError, "Messages")
 }
 
@@ -327,8 +335,8 @@ func handleNormalResponse(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Messages-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponse(resp, bodyBytes, envCfg, "Messages")
+		common.RequestLogf(c, "[Messages-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponse(c, resp, bodyBytes, envCfg, "Messages")
 	}
 
 	providerResp := &types.ProviderResponse{
@@ -345,14 +353,14 @@ func handleNormalResponse(
 		if len(preview) > 100 {
 			preview = preview[:100]
 		}
-		log.Printf("[Messages-InvalidBody] 响应体解析失败: %v, body前100字节: %s", err, preview)
+		common.RequestLogf(c, "[Messages-InvalidBody] 响应体解析失败: %v, body前100字节: %s", err, preview)
 		return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 	}
 
 	// 空响应拦截（仅 Fuzzy 模式）：上游 200 但 content 语义为空，
 	// Header 未发送，可安全 failover 到下一个 Key/BaseURL/渠道
 	if fuzzyMode && common.IsClaudeResponseEmpty(claudeResp) {
-		log.Printf("[Messages-EmptyResponse] 上游返回空响应（非流式，Key: %s），触发 failover", utils.MaskAPIKey(apiKey))
+		common.RequestLogf(c, "[Messages-EmptyResponse] 上游返回空响应（非流式，Key: %s），触发 failover", utils.MaskAPIKey(apiKey))
 		return nil, common.ErrEmptyNonStreamResponse
 	}
 
@@ -365,7 +373,7 @@ func handleNormalResponse(
 			OutputTokens: estimatedOutput,
 		}
 		if envCfg.EnableResponseLogs {
-			log.Printf("[Messages-Token] 上游无Usage, 本地估算: input=%d, output=%d", estimatedInput, estimatedOutput)
+			common.RequestLogf(c, "[Messages-Token] 上游无Usage, 本地估算: input=%d, output=%d", estimatedInput, estimatedOutput)
 		}
 	} else {
 		originalInput := claudeResp.Usage.InputTokens
@@ -384,10 +392,10 @@ func handleNormalResponse(
 		}
 		if envCfg.EnableResponseLogs {
 			if patched {
-				log.Printf("[Messages-Token] 虚假值补全: InputTokens=%d->%d, OutputTokens=%d->%d",
+				common.RequestLogf(c, "[Messages-Token] 虚假值补全: InputTokens=%d->%d, OutputTokens=%d->%d",
 					originalInput, claudeResp.Usage.InputTokens, originalOutput, claudeResp.Usage.OutputTokens)
 			}
-			log.Printf("[Messages-Token] InputTokens=%d, OutputTokens=%d, CacheCreationInputTokens=%d, CacheReadInputTokens=%d, CacheCreation5m=%d, CacheCreation1h=%d, CacheTTL=%s",
+			common.RequestLogf(c, "[Messages-Token] InputTokens=%d, OutputTokens=%d, CacheCreationInputTokens=%d, CacheReadInputTokens=%d, CacheCreation5m=%d, CacheCreation1h=%d, CacheTTL=%s",
 				claudeResp.Usage.InputTokens, claudeResp.Usage.OutputTokens,
 				claudeResp.Usage.CacheCreationInputTokens, claudeResp.Usage.CacheReadInputTokens,
 				claudeResp.Usage.CacheCreation5mInputTokens, claudeResp.Usage.CacheCreation1hInputTokens,
@@ -402,7 +410,7 @@ func handleNormalResponse(
 		if !c.Writer.Written() {
 			if envCfg.EnableResponseLogs {
 				responseTime := time.Since(startTime).Milliseconds()
-				log.Printf("[Messages-Timing] 响应中断: %dms, 状态: %d", responseTime, resp.StatusCode)
+				common.RequestLogf(c, "[Messages-Timing] 响应中断: %dms, 状态: %d", responseTime, resp.StatusCode)
 			}
 		}
 	}()
@@ -414,7 +422,7 @@ func handleNormalResponse(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Messages-Timing] 响应发送完成: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.RequestLogf(c, "[Messages-Timing] 响应发送完成: %dms, 状态: %d", responseTime, resp.StatusCode)
 	}
 
 	return claudeResp.Usage, nil
@@ -601,6 +609,10 @@ func CountTokensHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManag
 			c.JSON(400, gin.H{"error": "Invalid JSON"})
 			return
 		}
+		var claudeReq types.ClaudeRequest
+		_ = json.Unmarshal(bodyBytes, &claudeReq)
+		userID := utils.ExtractUnifiedSessionID(c, common.NormalizeMetadataUserID(bodyBytes))
+		common.SetRequestLogContext(c, userID, countUserMessages(claudeReq.Messages))
 
 		inputTokens := utils.EstimateRequestTokens(bodyBytes)
 
@@ -609,7 +621,7 @@ func CountTokensHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManag
 		})
 
 		if envCfg.EnableResponseLogs {
-			log.Printf("[Messages-Token] CountTokens本地估算: model=%s, input_tokens=%d", req.Model, inputTokens)
+			common.RequestLogf(c, "[Messages-Token] CountTokens本地估算: model=%s, input_tokens=%d", req.Model, inputTokens)
 		}
 	}
 }

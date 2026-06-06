@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -58,6 +57,7 @@ func Handler(
 		}
 
 		userID := utils.ExtractUnifiedSessionID(c, bodyBytes)
+		common.SetRequestLogContext(c, userID, 0)
 		common.LogOriginalRequest(c, bodyBytes, envCfg, "Images")
 
 		if channelScheduler.IsMultiChannelMode(scheduler.ChannelKindImages) {
@@ -96,7 +96,7 @@ func sanitizeDiagnosticError(err error) string {
 }
 
 func logImagesValidationFailure(c *gin.Context, operation string, contentType string, bodyBytes []byte, stage string, reason string, err error) {
-	log.Printf("[Images-Validation] operation=%s method=%s path=%s content_type=%q body_bytes=%d stage=%s reason=%s error=%q",
+	common.RequestLogf(c, "[Images-Validation] operation=%s method=%s path=%s content_type=%q body_bytes=%d stage=%s reason=%s error=%q",
 		operation,
 		c.Request.Method,
 		c.Request.URL.Path,
@@ -110,7 +110,7 @@ func logImagesValidationFailure(c *gin.Context, operation string, contentType st
 
 func logImagesMultipartFailure(c *gin.Context, operation string, contentType string, bodyBytes []byte, err error) {
 	stage, reason := describeMultipartDiagnostic(err)
-	log.Printf("[Images-Multipart] operation=%s method=%s path=%s content_type=%q body_bytes=%d stage=%s reason=%s multipart=true boundary_present=%t error=%q",
+	common.RequestLogf(c, "[Images-Multipart] operation=%s method=%s path=%s content_type=%q body_bytes=%d stage=%s reason=%s multipart=true boundary_present=%t error=%q",
 		operation,
 		c.Request.Method,
 		c.Request.URL.Path,
@@ -123,8 +123,8 @@ func logImagesMultipartFailure(c *gin.Context, operation string, contentType str
 	)
 }
 
-func logImagesBuildRequestFailure(operation string, baseURL string, apiKey string, model string, contentType string, bodyBytes []byte, stage string, reason string, err error) {
-	log.Printf("[Images-BuildRequest] operation=%s base_url=%q key_mask=%s model=%q content_type=%q body_bytes=%d stage=%s reason=%s error=%q",
+func logImagesBuildRequestFailure(c *gin.Context, operation string, baseURL string, apiKey string, model string, contentType string, bodyBytes []byte, stage string, reason string, err error) {
+	common.RequestLogf(c, "[Images-BuildRequest] operation=%s base_url=%q key_mask=%s model=%q content_type=%q body_bytes=%d stage=%s reason=%s error=%q",
 		operation,
 		baseURL,
 		utils.MaskAPIKey(apiKey),
@@ -339,7 +339,7 @@ func handleSingleChannel(
 		return
 	}
 
-	log.Printf("[Images-Error] 所有 API密钥都失败了")
+	common.RequestLogf(c, "[Images-Error] 所有 API密钥都失败了")
 	handleAllKeysFailed(c, lastFailoverError, lastError)
 }
 
@@ -366,7 +366,7 @@ func buildOperationRequest(
 ) (*http.Request, error) {
 	serviceType, err := config.NormalizeImagesServiceTypeForProxy(upstream.ServiceType)
 	if err != nil {
-		logImagesBuildRequestFailure(operation, baseURL, apiKey, model, contentType, bodyBytes, "normalize_service_type", "invalid_service_type", err)
+		logImagesBuildRequestFailure(c, operation, baseURL, apiKey, model, contentType, bodyBytes, "normalize_service_type", "invalid_service_type", err)
 		return nil, err
 	}
 	upstream.ServiceType = serviceType
@@ -387,14 +387,14 @@ func buildOperationRequest(
 				if reason == "" {
 					reason = "part_read_failed"
 				}
-				logImagesBuildRequestFailure(operation, baseURL, apiKey, redirectedModel, contentType, bodyBytes, stage, reason, err)
+				logImagesBuildRequestFailure(c, operation, baseURL, apiKey, redirectedModel, contentType, bodyBytes, stage, reason, err)
 				return nil, err
 			}
 		}
 	} else if operation == operationGenerations || len(bodyBytes) > 0 {
 		requestBody, requestContentType, err = buildJSONRequestBody(bodyBytes, model, redirectedModel, operation)
 		if err != nil {
-			logImagesBuildRequestFailure(operation, baseURL, apiKey, redirectedModel, contentType, bodyBytes, "build_json", "invalid_json", err)
+			logImagesBuildRequestFailure(c, operation, baseURL, apiKey, redirectedModel, contentType, bodyBytes, "build_json", "invalid_json", err)
 			return nil, err
 		}
 	}
@@ -402,7 +402,7 @@ func buildOperationRequest(
 	url := buildOperationURL(baseURL, operation)
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, url, bytes.NewReader(requestBody))
 	if err != nil {
-		logImagesBuildRequestFailure(operation, baseURL, apiKey, redirectedModel, requestContentType, requestBody, "new_request", "request_init_failed", err)
+		logImagesBuildRequestFailure(c, operation, baseURL, apiKey, redirectedModel, requestContentType, requestBody, "new_request", "request_init_failed", err)
 		return nil, err
 	}
 	if c.Request.URL != nil {
@@ -531,8 +531,8 @@ func handleSuccess(c *gin.Context, resp *http.Response, envCfg *config.EnvConfig
 	}
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Images-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponse(resp, bodyBytes, envCfg, "Images")
+		common.RequestLogf(c, "[Images-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponse(c, resp, bodyBytes, envCfg, "Images")
 	}
 	resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	var respMap map[string]interface{}
@@ -554,16 +554,16 @@ func passthroughStreamingResponse(c *gin.Context, resp *http.Response) error {
 func passthroughStreamingResponseWithLog(c *gin.Context, resp *http.Response, envCfg *config.EnvConfig, startTime time.Time, timeouts common.StreamPreflightTimeouts) error {
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Images-Stream] 流式响应开始: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponseHeaders(resp, envCfg, "Images")
+		common.RequestLogf(c, "[Images-Stream] 流式响应开始: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponseHeaders(c, resp, envCfg, "Images")
 	}
 
 	bufferedBytes, chunkChan, bodyErrChan, err := preflightImagesStream(resp, timeouts)
 	if err != nil {
 		if err == common.ErrStreamFirstContentTimeout {
-			log.Printf("[Images-FirstContentTimeout] 流式首块超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
+			common.RequestLogf(c, "[Images-FirstContentTimeout] 流式首块超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
 		} else if err == common.ErrStreamStalled {
-			log.Printf("[Images-StreamStalled] 流式断流: 首块后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
+			common.RequestLogf(c, "[Images-StreamStalled] 流式断流: 首块后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
 		}
 		return err
 	}
@@ -575,19 +575,19 @@ func passthroughStreamingResponseWithLog(c *gin.Context, resp *http.Response, en
 	if !ok {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if len(bodyBytes) > 0 {
-			common.LogUpstreamResponseBody(bodyBytes, envCfg, "Images")
+			common.LogUpstreamResponseBody(c, bodyBytes, envCfg, "Images")
 			if _, writeErr := c.Writer.Write(bodyBytes); writeErr != nil {
 				err = writeErr
 			}
 		}
 		if envCfg.EnableResponseLogs {
 			responseTime := time.Since(startTime).Milliseconds()
-			log.Printf("[Images-Stream] 流式响应完成: %dms", responseTime)
+			common.RequestLogf(c, "[Images-Stream] 流式响应完成: %dms", responseTime)
 		}
 		return err
 	}
 
-	progress := common.NewStreamProgressLogger("Images", startTime, envCfg.ShouldLog("info"))
+	progress := common.NewStreamProgressLogger("Images", startTime, envCfg.ShouldLog("info"), common.RequestLogTag(c))
 
 	// 回放缓冲的首个 chunk
 	if len(bufferedBytes) > 0 {
@@ -649,7 +649,7 @@ func passthroughStreamingResponseWithLog(c *gin.Context, resp *http.Response, en
 			goto streamEnd
 		case <-postCommitChan:
 			progress.Finish("stalled")
-			log.Printf("[Images-StreamStalled] 流式断流: 首字后 %dms 无上游 chunk 到达", timeouts.InactivityTimeoutMs)
+			common.RequestLogf(c, "[Images-StreamStalled] 流式断流: 首字后 %dms 无上游 chunk 到达", timeouts.InactivityTimeoutMs)
 			return common.ErrStreamPostCommitStalled
 		}
 	}
@@ -657,11 +657,11 @@ streamEnd:
 	progress.Finish("completed")
 
 	if logBuffer.Len() > 0 {
-		common.LogUpstreamResponseBody(logBuffer.Bytes(), envCfg, "Images")
+		common.LogUpstreamResponseBody(c, logBuffer.Bytes(), envCfg, "Images")
 	}
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Images-Stream] 流式响应完成: %dms", responseTime)
+		common.RequestLogf(c, "[Images-Stream] 流式响应完成: %dms", responseTime)
 	}
 	return nil
 }

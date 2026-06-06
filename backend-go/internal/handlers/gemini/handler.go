@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -83,6 +82,7 @@ func Handler(
 
 		// 提取统一会话标识用于 Trace 亲和性
 		userID := utils.ExtractUnifiedSessionID(c, bodyBytes)
+		common.SetRequestLogContext(c, userID, countGeminiUserContents(geminiReq))
 
 		// 记录原始请求信息
 		common.LogOriginalRequest(c, bodyBytes, envCfg, "Gemini")
@@ -110,6 +110,19 @@ func extractModelName(param string) string {
 		return param[:idx]
 	}
 	return param
+}
+
+func countGeminiUserContents(req types.GeminiRequest) int {
+	count := 0
+	for _, content := range req.Contents {
+		if content.Role != "user" {
+			continue
+		}
+		if len(content.Parts) > 0 {
+			count++
+		}
+	}
+	return count
 }
 
 // handleMultiChannel 处理多渠道 Gemini 请求
@@ -272,7 +285,7 @@ func handleSingleChannel(
 		return
 	}
 
-	log.Printf("[Gemini-Error] 所有 API密钥都失败了")
+	common.RequestLogf(c, "[Gemini-Error] 所有 API密钥都失败了")
 	handleAllKeysFailed(c, lastFailoverError, lastError)
 }
 
@@ -516,8 +529,8 @@ func handleSuccess(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Gemini-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponse(resp, bodyBytes, envCfg, "Gemini")
+		common.RequestLogf(c, "[Gemini-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponse(c, resp, bodyBytes, envCfg, "Gemini")
 	}
 
 	// 根据上游类型转换响应
@@ -531,7 +544,7 @@ func handleSuccess(
 			if len(preview) > 100 {
 				preview = preview[:100]
 			}
-			log.Printf("[Gemini-InvalidBody] 响应体解析失败: %v, body前100字节: %s", err, preview)
+			common.RequestLogf(c, "[Gemini-InvalidBody] 响应体解析失败: %v, body前100字节: %s", err, preview)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 
@@ -543,12 +556,12 @@ func handleSuccess(
 			if len(preview) > 100 {
 				preview = preview[:100]
 			}
-			log.Printf("[Gemini-InvalidBody] Claude响应体解析失败: %v, body前100字节: %s", err, preview)
+			common.RequestLogf(c, "[Gemini-InvalidBody] Claude响应体解析失败: %v, body前100字节: %s", err, preview)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 		geminiResp, err = converters.ClaudeResponseToGemini(claudeResp)
 		if err != nil {
-			log.Printf("[Gemini-InvalidBody] Claude响应转换失败: %v", err)
+			common.RequestLogf(c, "[Gemini-InvalidBody] Claude响应转换失败: %v", err)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 
@@ -560,12 +573,12 @@ func handleSuccess(
 			if len(preview) > 100 {
 				preview = preview[:100]
 			}
-			log.Printf("[Gemini-InvalidBody] OpenAI响应体解析失败: %v, body前100字节: %s", err, preview)
+			common.RequestLogf(c, "[Gemini-InvalidBody] OpenAI响应体解析失败: %v, body前100字节: %s", err, preview)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 		geminiResp, err = converters.OpenAIResponseToGemini(openaiResp)
 		if err != nil {
-			log.Printf("[Gemini-InvalidBody] OpenAI响应转换失败: %v", err)
+			common.RequestLogf(c, "[Gemini-InvalidBody] OpenAI响应转换失败: %v", err)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 
@@ -577,12 +590,12 @@ func handleSuccess(
 			if len(preview) > 100 {
 				preview = preview[:100]
 			}
-			log.Printf("[Gemini-InvalidBody] Responses响应体解析失败: %v, body前100字节: %s", err, preview)
+			common.RequestLogf(c, "[Gemini-InvalidBody] Responses响应体解析失败: %v, body前100字节: %s", err, preview)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 		geminiResp, err = converters.ResponsesResponseToGemini(responsesResp)
 		if err != nil {
-			log.Printf("[Gemini-InvalidBody] Responses响应转换失败: %v", err)
+			common.RequestLogf(c, "[Gemini-InvalidBody] Responses响应转换失败: %v", err)
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 
@@ -594,7 +607,7 @@ func handleSuccess(
 	// 空响应拦截（仅 Fuzzy 模式）：上游 200 但 candidates 语义为空，
 	// Header 未发送，可安全 failover 到下一个 Key/BaseURL/渠道
 	if fuzzyMode && common.IsGeminiResponseEmpty(geminiResp) {
-		log.Printf("[Gemini-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
+		common.RequestLogf(c, "[Gemini-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
 		return nil, common.ErrEmptyNonStreamResponse
 	}
 

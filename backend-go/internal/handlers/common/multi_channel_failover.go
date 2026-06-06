@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/BenedictKing/ccx/internal/config"
 	"github.com/BenedictKing/ccx/internal/scheduler"
@@ -65,7 +64,7 @@ func HandleMultiChannelFailover(
 		select {
 		case <-c.Request.Context().Done():
 			if envCfg.ShouldLog("info") {
-				log.Printf("[%s-Cancel] 请求已取消，停止渠道 failover", apiType)
+				RequestLogf(c, "[%s-Cancel] 请求已取消，停止渠道 failover", apiType)
 			}
 			return
 		default:
@@ -82,7 +81,7 @@ func HandleMultiChannelFailover(
 		channelIndex := selection.ChannelIndex
 
 		if envCfg.ShouldLog("info") && upstream != nil {
-			log.Printf("[%s-Select] 选择渠道: [%d] %s (原因: %s, 尝试 %d/%d)",
+			RequestLogf(c, "[%s-Select] 选择渠道: [%d] %s (原因: %s, 尝试 %d/%d)",
 				apiType, channelIndex, upstream.Name, selection.Reason, channelAttempt+1, maxChannelAttempts)
 		}
 
@@ -105,7 +104,7 @@ func HandleMultiChannelFailover(
 				}
 				channelScheduler.TrackConversation(kind, userID, model, channelIndex, channelName, "", lastUserMsgStr, userMsgCountInt)
 				if envCfg.ShouldLog("debug") {
-					log.Printf("[%s-Conversation-Debug] 已追踪对话: kind=%s, user=%s, model=%s, channel=%d, userMessages=%d, hasFallbackTitle=%t",
+					RequestLogf(c, "[%s-Conversation-Debug] 已追踪对话: kind=%s, user=%s, model=%s, channel=%d, userMessages=%d, hasFallbackTitle=%t",
 						apiType, kind, scheduler.MaskUserIDForLog(userID), model, channelIndex, userMsgCountInt, lastUserMsgStr != "")
 				}
 			}
@@ -127,10 +126,10 @@ func HandleMultiChannelFailover(
 		}
 
 		if result.Attempted && upstream != nil {
-			log.Printf("[%s-Failover] 警告: 渠道 [%d] %s 所有密钥都失败，尝试下一个渠道", apiType, channelIndex, upstream.Name)
+			RequestLogf(c, "[%s-Failover] 警告: 渠道 [%d] %s 所有密钥都失败，尝试下一个渠道", apiType, channelIndex, upstream.Name)
 		}
 	}
 
-	log.Printf("[%s-Error] 所有渠道都失败了", apiType)
+	RequestLogf(c, "[%s-Error] 所有渠道都失败了", apiType)
 	handleAllFailed(c, lastFailoverError, lastError)
 }

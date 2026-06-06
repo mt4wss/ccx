@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -122,20 +121,20 @@ func TryUpstreamWithAllKeys(
 	// Vision 能力检查：含图请求跳过不支持 vision 的渠道/模型
 	if kind != scheduler.ChannelKindImages && HasImageContent(c, requestBody) {
 		if upstream.NoVision {
-			log.Printf("[%s-Vision] 跳过不支持视觉的渠道 [%d] %s", apiType, channelIndex, upstream.Name)
+			RequestLogf(c, "[%s-Vision] 跳过不支持视觉的渠道 [%d] %s", apiType, channelIndex, upstream.Name)
 			return false, "", 0, nil, nil, fmt.Errorf("channel %s does not support vision", upstream.Name)
 		}
 		if isNoVisionModel(upstream, redirectedModel) {
 			if upstream.VisionFallbackModel != "" {
 				fallback := upstream.VisionFallbackModel
-				log.Printf("[%s-Vision] 模型 %s 不支持视觉，使用 fallback: %s (渠道 [%d] %s)", apiType, redirectedModel, fallback, channelIndex, upstream.Name)
+				RequestLogf(c, "[%s-Vision] 模型 %s 不支持视觉，使用 fallback: %s (渠道 [%d] %s)", apiType, redirectedModel, fallback, channelIndex, upstream.Name)
 				if replaced, err := sjson.SetBytes(requestBody, "model", fallback); err == nil {
 					requestBody = replaced
 				}
 				originalModel = model
 				redirectedModel = fallback
 			} else {
-				log.Printf("[%s-Vision] 模型 %s 不支持视觉且无 fallback，跳过渠道 [%d] %s", apiType, redirectedModel, channelIndex, upstream.Name)
+				RequestLogf(c, "[%s-Vision] 模型 %s 不支持视觉且无 fallback，跳过渠道 [%d] %s", apiType, redirectedModel, channelIndex, upstream.Name)
 				return false, "", 0, nil, nil, fmt.Errorf("model %s does not support vision", redirectedModel)
 			}
 		}
@@ -171,22 +170,22 @@ func TryUpstreamWithAllKeys(
 			circuitState := metricsManager.GetKeyCircuitState(currentBaseURL, apiKey, metricsServiceType)
 			if circuitState == metrics.CircuitStateOpen {
 				failedKeys[apiKey] = true
-				log.Printf("[%s-Circuit] 跳过 open 状态中的 Key: %s", apiType, utils.MaskAPIKey(apiKey))
+				RequestLogf(c, "[%s-Circuit] 跳过 open 状态中的 Key: %s", apiType, utils.MaskAPIKey(apiKey))
 				continue
 			}
 			if circuitState == metrics.CircuitStateHalfOpen {
 				probeKey := currentBaseURL + "|" + apiKey
 				if !metricsManager.TryAcquireProbe(currentBaseURL, apiKey, metricsServiceType) {
 					failedKeys[apiKey] = true
-					log.Printf("[%s-Circuit] 跳过 half-open 探针已占用的 Key: %s", apiType, utils.MaskAPIKey(apiKey))
+					RequestLogf(c, "[%s-Circuit] 跳过 half-open 探针已占用的 Key: %s", apiType, utils.MaskAPIKey(apiKey))
 					continue
 				}
 				probeAcquired[probeKey] = true
-				log.Printf("[%s-Circuit] 使用 half-open 探针 Key: %s", apiType, utils.MaskAPIKey(apiKey))
+				RequestLogf(c, "[%s-Circuit] 使用 half-open 探针 Key: %s", apiType, utils.MaskAPIKey(apiKey))
 			}
 
 			if envCfg.ShouldLog("info") {
-				log.Printf("[%s-Key] 使用API密钥: %s (BaseURL %d/%d, 尝试 %d/%d)",
+				RequestLogf(c, "[%s-Key] 使用API密钥: %s (BaseURL %d/%d, 尝试 %d/%d)",
 					apiType, utils.MaskAPIKey(apiKey), urlIdx+1, len(urlResults), attempt+1, maxRetries)
 			}
 
@@ -198,9 +197,10 @@ func TryUpstreamWithAllKeys(
 			if err != nil {
 				// buildRequest 失败通常是客户端参数问题或本地构建错误
 				// 不应污染熔断统计，直接返回错误
-				log.Printf("[%s-BuildRequest] 请求构建失败: %v", apiType, err)
+				RequestLogf(c, "[%s-BuildRequest] 请求构建失败: %v", apiType, err)
 				return false, "", 0, nil, nil, fmt.Errorf("request build failed: %w", err)
 			}
+			req = WithRequestLogContext(req, c)
 
 			// 记录请求开始
 			channelScheduler.RecordRequestStart(currentBaseURL, apiKey, metricsServiceType, kind)
@@ -232,7 +232,7 @@ func TryUpstreamWithAllKeys(
 					channelScheduler.RecordRequestEnd(currentBaseURL, apiKey, metricsServiceType, kind)
 					// 完成日志记录（客户端取消）
 					CompleteLog(channelLogStore, metricsKey, logRequestID, 0, false, "client canceled", attempt > 0 || urlIdx > 0)
-					log.Printf("[%s-Cancel] 请求已取消（SendRequest 阶段）", apiType)
+					RequestLogf(c, "[%s-Cancel] 请求已取消（SendRequest 阶段）", apiType)
 					return true, "", 0, nil, nil, err
 				}
 				// 真实渠道故障：计入失败，继续 failover
@@ -246,7 +246,7 @@ func TryUpstreamWithAllKeys(
 				// 记录渠道日志
 				// 完成日志记录
 				CompleteLog(channelLogStore, metricsKey, logRequestID, 0, false, err.Error(), attempt > 0 || urlIdx > 0)
-				log.Printf("[%s-Key] 警告: API密钥失败: %v", apiType, err)
+				RequestLogf(c, "[%s-Key] 警告: API密钥失败: %v", apiType, err)
 				continue
 			}
 
@@ -255,7 +255,7 @@ func TryUpstreamWithAllKeys(
 				resp.Body.Close()
 				respBodyBytes = utils.DecompressGzipIfNeeded(resp, respBodyBytes)
 
-				shouldFailover, isQuotaRelated := ShouldRetryWithNextKey(resp.StatusCode, respBodyBytes, cfgManager.GetFuzzyModeEnabled(), apiType)
+				shouldFailover, isQuotaRelated := ShouldRetryWithNextKeyWithLogTag(resp.StatusCode, respBodyBytes, cfgManager.GetFuzzyModeEnabled(), apiType, RequestLogTag(c))
 
 				// 检查是否应永久拉黑该 Key（认证/权限/余额错误）
 				blResult := ShouldBlacklistKey(resp.StatusCode, respBodyBytes)
@@ -263,7 +263,7 @@ func TryUpstreamWithAllKeys(
 					isBalanceError := blResult.Reason == "insufficient_balance"
 					if !isBalanceError || upstream.IsAutoBlacklistBalanceEnabled() {
 						if err := cfgManager.BlacklistKey(apiType, channelIndex, apiKey, blResult.Reason, blResult.Message); err != nil {
-							log.Printf("[%s-Blacklist] 拉黑 Key 失败: %v", apiType, err)
+							RequestLogf(c, "[%s-Blacklist] 拉黑 Key 失败: %v", apiType, err)
 						}
 					}
 				}
@@ -283,9 +283,9 @@ func TryUpstreamWithAllKeys(
 					}
 					errorSummary := truncateErrorSummary(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(string(respBodyBytes)), "\n", " "), "\r", " "))
 					if errorSummary != "" {
-						log.Printf("[%s-Key] 上游错误详情摘要: channel=[%d] %s, key=%s, summary=%s", apiType, channelIndex, upstream.Name, utils.MaskAPIKey(apiKey), errorSummary)
+						RequestLogf(c, "[%s-Key] 上游错误详情摘要: channel=[%d] %s, key=%s, summary=%s", apiType, channelIndex, upstream.Name, utils.MaskAPIKey(apiKey), errorSummary)
 					}
-					log.Printf("[%s-Key] 警告: API密钥失败 (状态: %d)，尝试下一个密钥", apiType, resp.StatusCode)
+					RequestLogf(c, "[%s-Key] 警告: API密钥失败 (状态: %d)，尝试下一个密钥", apiType, resp.StatusCode)
 
 					lastFailoverError = &FailoverError{
 						Status: resp.StatusCode,
@@ -330,7 +330,7 @@ func TryUpstreamWithAllKeys(
 					// 客户端取消/断开：计入总请求数但不计入失败
 					metricsManager.RecordRequestFinalizeClientCancel(currentBaseURL, apiKey, metricsServiceType, requestID)
 					channelScheduler.RecordRequestEnd(currentBaseURL, apiKey, metricsServiceType, kind)
-					log.Printf("[%s-Cancel] 请求已取消，停止渠道 failover", apiType)
+					RequestLogf(c, "[%s-Cancel] 请求已取消，停止渠道 failover", apiType)
 					// 完成日志记录（客户端取消）
 					CompleteLog(channelLogStore, metricsKey, logRequestID, http.StatusOK, false, "client canceled", attempt > 0 || urlIdx > 0)
 				} else if errors.Is(err, ErrEmptyStreamResponse) || errors.Is(err, ErrInvalidResponseBody) || errors.Is(err, ErrEmptyNonStreamResponse) || errors.Is(err, ErrStreamFirstContentTimeout) || errors.Is(err, ErrStreamStalled) {
@@ -344,7 +344,7 @@ func TryUpstreamWithAllKeys(
 					}
 					// 记录渠道日志
 					CompleteLog(channelLogStore, metricsKey, logRequestID, http.StatusOK, false, err.Error(), attempt > 0 || urlIdx > 0)
-					log.Printf("[%s-InvalidResponse] 上游返回无效响应 (Key: %s): %v，尝试下一个密钥", apiType, utils.MaskAPIKey(apiKey), err)
+					RequestLogf(c, "[%s-InvalidResponse] 上游返回无效响应 (Key: %s): %v，尝试下一个密钥", apiType, utils.MaskAPIKey(apiKey), err)
 					continue
 				} else if blErr, ok := err.(*ErrBlacklistKey); ok {
 					// SSE 流内检测到拉黑条件：Header 未发送，可安全 failover + 拉黑 Key
@@ -352,7 +352,7 @@ func TryUpstreamWithAllKeys(
 					isBalanceError := blErr.Reason == "insufficient_balance"
 					if !isBalanceError || upstream.IsAutoBlacklistBalanceEnabled() {
 						if blacklistErr := cfgManager.BlacklistKey(apiType, channelIndex, apiKey, blErr.Reason, blErr.Message); blacklistErr != nil {
-							log.Printf("[%s-Blacklist] 拉黑 Key 失败: %v", apiType, blacklistErr)
+							RequestLogf(c, "[%s-Blacklist] 拉黑 Key 失败: %v", apiType, blacklistErr)
 						}
 					}
 					cfgManager.MarkKeyAsFailed(apiKey, apiType)
@@ -362,7 +362,7 @@ func TryUpstreamWithAllKeys(
 						markURLFailure(currentBaseURL)
 					}
 					CompleteLog(channelLogStore, metricsKey, logRequestID, http.StatusOK, false, fmt.Sprintf("key blacklisted: %s - %s", blErr.Reason, blErr.Message), attempt > 0 || urlIdx > 0)
-					log.Printf("[%s-Blacklist] SSE 流内错误触发拉黑 (Key: %s, 原因: %s)，尝试下一个密钥", apiType, utils.MaskAPIKey(apiKey), blErr.Reason)
+					RequestLogf(c, "[%s-Blacklist] SSE 流内错误触发拉黑 (Key: %s, 原因: %s)，尝试下一个密钥", apiType, utils.MaskAPIKey(apiKey), blErr.Reason)
 					continue
 				} else {
 					// 真实渠道故障：计入失败指标
@@ -371,7 +371,7 @@ func TryUpstreamWithAllKeys(
 					channelScheduler.RecordRequestEnd(currentBaseURL, apiKey, metricsServiceType, kind)
 					// 记录渠道日志
 					CompleteLog(channelLogStore, metricsKey, logRequestID, http.StatusOK, false, err.Error(), attempt > 0 || urlIdx > 0)
-					log.Printf("[%s-Key] 警告: 响应处理失败: %v", apiType, err)
+					RequestLogf(c, "[%s-Key] 警告: 响应处理失败: %v", apiType, err)
 				}
 				return true, "", 0, nil, usage, err
 			}
@@ -389,7 +389,7 @@ func TryUpstreamWithAllKeys(
 
 		// 当前 BaseURL 的所有 Key 都失败，记录并尝试下一个 BaseURL
 		if envCfg.ShouldLog("info") && urlIdx < len(urlResults)-1 {
-			log.Printf("[%s-BaseURL] BaseURL %d/%d 所有 Key 失败，切换到下一个 BaseURL", apiType, urlIdx+1, len(urlResults))
+			RequestLogf(c, "[%s-BaseURL] BaseURL %d/%d 所有 Key 失败，切换到下一个 BaseURL", apiType, urlIdx+1, len(urlResults))
 		}
 	}
 

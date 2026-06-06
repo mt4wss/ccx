@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -333,9 +332,9 @@ func handleStreamSuccess(
 	bufferedLines, chunkChan, bodyErrChan, err := preflightGeminiStream(resp, upstreamType, timeouts)
 	if err != nil {
 		if errors.Is(err, common.ErrStreamFirstContentTimeout) {
-			log.Printf("[Gemini-FirstContentTimeout] 流式首字超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
+			common.RequestLogf(c, "[Gemini-FirstContentTimeout] 流式首字超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
 		} else if errors.Is(err, common.ErrStreamStalled) {
-			log.Printf("[Gemini-StreamStalled] 流式断流: 首字后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
+			common.RequestLogf(c, "[Gemini-StreamStalled] 流式断流: 首字后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
 		}
 		return nil, err
 	}
@@ -353,7 +352,7 @@ func handleStreamSuccess(
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		log.Printf("[Gemini-Stream] 警告: ResponseWriter 不支持 Flusher")
+		common.RequestLogf(c, "[Gemini-Stream] 警告: ResponseWriter 不支持 Flusher")
 	}
 
 	var totalUsage *types.Usage
@@ -361,7 +360,7 @@ func handleStreamSuccess(
 	logBuffer := common.NewLimitedLogBuffer(common.MaxUpstreamResponseLogBytes)
 	streamLoggingEnabled := envCfg.EnableResponseLogs && envCfg.IsDevelopment()
 
-	common.LogUpstreamResponseHeaders(resp, envCfg, "Gemini")
+	common.LogUpstreamResponseHeaders(c, resp, envCfg, "Gemini")
 
 	// 回放缓冲的行，然后继续读取原始上游 body
 	bufferedBody := strings.Join(bufferedLines, "\n")
@@ -370,7 +369,7 @@ func handleStreamSuccess(
 	}
 	reader := newStreamLineReader(chunkChan, bodyErrChan)
 	reader.remainder = bufferedBody
-	progress := common.NewStreamProgressLogger("Gemini", startTime, envCfg.ShouldLog("info"))
+	progress := common.NewStreamProgressLogger("Gemini", startTime, envCfg.ShouldLog("info"), common.RequestLogTag(c))
 
 	switch upstreamType {
 	case "gemini":
@@ -391,9 +390,9 @@ func handleStreamSuccess(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Gemini-Stream-Timing] 流式响应完成: %dms", responseTime)
+		common.RequestLogf(c, "[Gemini-Stream-Timing] 流式响应完成: %dms", responseTime)
 		if logBuffer.Len() > 0 {
-			log.Printf("[Gemini-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
+			common.RequestLogf(c, "[Gemini-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
 		}
 	}
 

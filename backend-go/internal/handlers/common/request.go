@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptrace"
 	"regexp"
@@ -161,7 +160,7 @@ func PassthroughJSONResponse(c *gin.Context, resp *http.Response, target interfa
 	return err
 }
 
-func LogUpstreamResponseHeaders(resp *http.Response, envCfg *config.EnvConfig, apiType string) {
+func LogUpstreamResponseHeaders(c *gin.Context, resp *http.Response, envCfg *config.EnvConfig, apiType string) {
 	if !envCfg.EnableResponseLogs || !envCfg.IsDevelopment() || resp == nil {
 		return
 	}
@@ -173,23 +172,23 @@ func LogUpstreamResponseHeaders(resp *http.Response, envCfg *config.EnvConfig, a
 		}
 	}
 	respHeadersJSON, _ := json.MarshalIndent(respHeaders, "", "  ")
-	logToConsole("[%s-Response] 响应头:\n%s", apiType, string(respHeadersJSON))
+	requestLogToConsole(c, "[%s-Response] 响应头:\n%s", apiType, string(respHeadersJSON))
 	rawHeadersJSON, _ := json.Marshal(respHeaders)
-	logToFile("[%s-Response] 响应头:\n%s", apiType, string(rawHeadersJSON))
+	requestLogToFile(c, "[%s-Response] 响应头:\n%s", apiType, string(rawHeadersJSON))
 }
 
-func LogUpstreamResponseBody(bodyBytes []byte, envCfg *config.EnvConfig, apiType string) {
+func LogUpstreamResponseBody(c *gin.Context, bodyBytes []byte, envCfg *config.EnvConfig, apiType string) {
 	if !envCfg.EnableResponseLogs || !envCfg.IsDevelopment() {
 		return
 	}
 
-	logToConsole("[%s-Response] 响应体:\n%s", apiType, utils.FormatJSONBytesForLog(bodyBytes, 0))
-	logToFile("[%s-Response] 响应体:\n%s", apiType, utils.FormatJSONBytesRaw(bodyBytes))
+	requestLogToConsole(c, "[%s-Response] 响应体:\n%s", apiType, utils.FormatJSONBytesForLog(bodyBytes, consoleJSONTextLimit))
+	requestLogToFile(c, "[%s-Response] 响应体:\n%s", apiType, utils.FormatJSONBytesRaw(bodyBytes))
 }
 
-func LogUpstreamResponse(resp *http.Response, bodyBytes []byte, envCfg *config.EnvConfig, apiType string) {
-	LogUpstreamResponseHeaders(resp, envCfg, apiType)
-	LogUpstreamResponseBody(bodyBytes, envCfg, apiType)
+func LogUpstreamResponse(c *gin.Context, resp *http.Response, bodyBytes []byte, envCfg *config.EnvConfig, apiType string) {
+	LogUpstreamResponseHeaders(c, resp, envCfg, apiType)
+	LogUpstreamResponseBody(c, bodyBytes, envCfg, apiType)
 }
 
 // SendRequest 发送 HTTP 请求到上游
@@ -212,19 +211,19 @@ func SendRequestWithLifecycleTrace(req *http.Request, upstream *config.UpstreamC
 	}
 
 	if upstream.InsecureSkipVerify && envCfg.EnableRequestLogs {
-		logToConsole("[%s-Request-TLS] 警告: 正在跳过对 %s 的TLS证书验证", apiType, req.URL.String())
-		logToFile("[%s-Request-TLS] 警告: 正在跳过对 %s 的TLS证书验证", apiType, req.URL.String())
+		requestLogToConsoleFromRequest(req, "[%s-Request-TLS] 警告: 正在跳过对 %s 的TLS证书验证", apiType, req.URL.String())
+		requestLogToFileFromRequest(req, "[%s-Request-TLS] 警告: 正在跳过对 %s 的TLS证书验证", apiType, req.URL.String())
 	}
 
 	if envCfg.EnableRequestLogs {
-		logToConsole("[%s-Request-URL] 实际请求URL: %s", apiType, req.URL.String())
-		logToConsole("[%s-Request-Method] 请求方法: %s", apiType, req.Method)
-		logToFile("[%s-Request-URL] 实际请求URL: %s", apiType, req.URL.String())
-		logToFile("[%s-Request-Method] 请求方法: %s", apiType, req.Method)
+		requestLogToConsoleFromRequest(req, "[%s-Request-URL] 实际请求URL: %s", apiType, req.URL.String())
+		requestLogToConsoleFromRequest(req, "[%s-Request-Method] 请求方法: %s", apiType, req.Method)
+		requestLogToFileFromRequest(req, "[%s-Request-URL] 实际请求URL: %s", apiType, req.URL.String())
+		requestLogToFileFromRequest(req, "[%s-Request-Method] 请求方法: %s", apiType, req.Method)
 		if upstream.ProxyURL != "" {
 			redactedProxyURL := utils.RedactURLCredentials(upstream.ProxyURL)
-			logToConsole("[%s-Request-Proxy] 使用代理: %s", apiType, redactedProxyURL)
-			logToFile("[%s-Request-Proxy] 使用代理: %s", apiType, redactedProxyURL)
+			requestLogToConsoleFromRequest(req, "[%s-Request-Proxy] 使用代理: %s", apiType, redactedProxyURL)
+			requestLogToFileFromRequest(req, "[%s-Request-Proxy] 使用代理: %s", apiType, redactedProxyURL)
 		}
 		if envCfg.IsDevelopment() {
 			logRequestDetails(req, envCfg, apiType)
@@ -267,22 +266,22 @@ func logRequestDetails(req *http.Request, envCfg *config.EnvConfig, apiType stri
 	}
 	maskedReqHeaders := utils.MaskSensitiveHeaders(reqHeaders)
 	reqHeadersJSON, _ := json.MarshalIndent(maskedReqHeaders, "", "  ")
-	logToConsole("[%s-Request-Headers] 实际请求头:\n%s", apiType, string(reqHeadersJSON))
+	requestLogToConsoleFromRequest(req, "[%s-Request-Headers] 实际请求头:\n%s", apiType, string(reqHeadersJSON))
 	rawReqHeadersJSON, _ := json.Marshal(maskedReqHeaders)
-	logToFile("[%s-Request-Headers] 实际请求头:\n%s", apiType, string(rawReqHeadersJSON))
+	requestLogToFileFromRequest(req, "[%s-Request-Headers] 实际请求头:\n%s", apiType, string(rawReqHeadersJSON))
 
 	if req.Body != nil {
 		contentType := req.Header.Get("Content-Type")
 		if strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {
-			logToConsole("[%s-Request-Body] 实际请求体: [multipart/form-data omitted]", apiType)
-			logToFile("[%s-Request-Body] 实际请求体: [multipart/form-data omitted]", apiType)
+			requestLogToConsoleFromRequest(req, "[%s-Request-Body] 实际请求体: [multipart/form-data omitted]", apiType)
+			requestLogToFileFromRequest(req, "[%s-Request-Body] 实际请求体: [multipart/form-data omitted]", apiType)
 			return
 		}
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err == nil {
 			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			logToConsole("[%s-Request-Body] 实际请求体:\n%s", apiType, utils.FormatJSONBytesForLog(bodyBytes, 0))
-			logToFile("[%s-Request-Body] 实际请求体:\n%s", apiType, utils.FormatJSONBytesRaw(bodyBytes))
+			requestLogToConsoleFromRequest(req, "[%s-Request-Body] 实际请求体:\n%s", apiType, utils.FormatJSONBytesForLog(bodyBytes, consoleJSONTextLimit))
+			requestLogToFileFromRequest(req, "[%s-Request-Body] 实际请求体:\n%s", apiType, utils.FormatJSONBytesRaw(bodyBytes))
 		}
 	}
 }
@@ -293,17 +292,17 @@ func LogOriginalRequest(c *gin.Context, bodyBytes []byte, envCfg *config.EnvConf
 		return
 	}
 
-	logToConsole("[Request-Receive] 收到%s请求: %s %s", apiType, c.Request.Method, c.Request.URL.Path)
-	logToFile("[Request-Receive] 收到%s请求: %s %s", apiType, c.Request.Method, c.Request.URL.Path)
+	requestLogToConsole(c, "[Request-Receive] 收到%s请求: %s %s", apiType, c.Request.Method, c.Request.URL.Path)
+	requestLogToFile(c, "[Request-Receive] 收到%s请求: %s %s", apiType, c.Request.Method, c.Request.URL.Path)
 
 	if envCfg.IsDevelopment() {
 		contentType := c.GetHeader("Content-Type")
 		if strings.HasPrefix(strings.ToLower(contentType), "multipart/form-data") {
-			logToConsole("[Request-OriginalBody] 原始请求体: [multipart/form-data omitted]")
-			logToFile("[Request-OriginalBody] 原始请求体: [multipart/form-data omitted]")
+			requestLogToConsole(c, "[Request-OriginalBody] 原始请求体: [multipart/form-data omitted]")
+			requestLogToFile(c, "[Request-OriginalBody] 原始请求体: [multipart/form-data omitted]")
 		} else {
-			logToConsole("[Request-OriginalBody] 原始请求体:\n%s", utils.FormatJSONBytesForLog(bodyBytes, 0))
-			logToFile("[Request-OriginalBody] 原始请求体:\n%s", utils.FormatJSONBytesRaw(bodyBytes))
+			requestLogToConsole(c, "[Request-OriginalBody] 原始请求体:\n%s", utils.FormatJSONBytesForLog(bodyBytes, consoleJSONTextLimit))
+			requestLogToFile(c, "[Request-OriginalBody] 原始请求体:\n%s", utils.FormatJSONBytesRaw(bodyBytes))
 		}
 
 		sanitizedHeaders := make(map[string]string)
@@ -314,9 +313,9 @@ func LogOriginalRequest(c *gin.Context, bodyBytes []byte, envCfg *config.EnvConf
 		}
 		maskedHeaders := utils.MaskSensitiveHeaders(sanitizedHeaders)
 		headersJSON, _ := json.MarshalIndent(maskedHeaders, "", "  ")
-		logToConsole("[Request-OriginalHeaders] 原始请求头:\n%s", string(headersJSON))
+		requestLogToConsole(c, "[Request-OriginalHeaders] 原始请求头:\n%s", string(headersJSON))
 		rawHeadersJSON, _ := json.Marshal(maskedHeaders)
-		logToFile("[Request-OriginalHeaders] 原始请求头:\n%s", string(rawHeadersJSON))
+		requestLogToFile(c, "[Request-OriginalHeaders] 原始请求头:\n%s", string(rawHeadersJSON))
 	}
 }
 
@@ -341,6 +340,10 @@ func AreAllKeysSuspended(metricsManager *metrics.MetricsManager, baseURL string,
 // enableLog: 是否输出日志（由 envCfg.EnableRequestLogs 控制）
 // apiType: 接口类型（Messages/Responses/Gemini），用于日志标签前缀
 func RemoveEmptySignatures(bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
+	return RemoveEmptySignaturesWithContext(nil, bodyBytes, enableLog, apiType)
+}
+
+func RemoveEmptySignaturesWithContext(c *gin.Context, bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
 	decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
 	decoder.UseNumber() // 保留数字精度
 
@@ -355,7 +358,7 @@ func RemoveEmptySignatures(bodyBytes []byte, enableLog bool, apiType string) ([]
 	}
 
 	if enableLog && removedCount > 0 {
-		log.Printf("[%s-Preprocess] 已移除 %d 个空 signature 字段", apiType, removedCount)
+		RequestLogf(c, "[%s-Preprocess] 已移除 %d 个空 signature 字段", apiType, removedCount)
 	}
 
 	// 使用 Encoder 并禁用 HTML 转义，保持原始格式
@@ -425,6 +428,10 @@ func removeEmptySignaturesInMessages(data map[string]interface{}) (bool, int) {
 //
 // 返回 (新字节, 是否修改)
 func SanitizeMalformedThinkingBlocks(bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
+	return SanitizeMalformedThinkingBlocksWithContext(nil, bodyBytes, enableLog, apiType)
+}
+
+func SanitizeMalformedThinkingBlocksWithContext(c *gin.Context, bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
 	decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
 	decoder.UseNumber() // 保留数字精度
 
@@ -440,9 +447,9 @@ func SanitizeMalformedThinkingBlocks(bodyBytes []byte, enableLog bool, apiType s
 
 	if enableLog {
 		if removedMsgs > 0 {
-			log.Printf("[%s-Preprocess] 已移除 %d 个 thinking 内容块，并删除 %d 条清理后 content 为空的 assistant 消息", apiType, removedBlocks, removedMsgs)
+			RequestLogf(c, "[%s-Preprocess] 已移除 %d 个 thinking 内容块，并删除 %d 条清理后 content 为空的 assistant 消息", apiType, removedBlocks, removedMsgs)
 		} else {
-			log.Printf("[%s-Preprocess] 已移除 %d 个 thinking 内容块", apiType, removedBlocks)
+			RequestLogf(c, "[%s-Preprocess] 已移除 %d 个 thinking 内容块", apiType, removedBlocks)
 		}
 	}
 
@@ -687,6 +694,10 @@ var cchPattern = regexp.MustCompile(`\s*cch=[^;]*;\s*`)
 // enableLog: 是否输出日志（由 envCfg.EnableRequestLogs 控制）
 // apiType: 接口类型（Messages/Responses/Gemini），用于日志标签前缀
 func RemoveBillingHeaders(bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
+	return RemoveBillingHeadersWithContext(nil, bodyBytes, enableLog, apiType)
+}
+
+func RemoveBillingHeadersWithContext(c *gin.Context, bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
 	decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
 	decoder.UseNumber() // 保留数字精度
 
@@ -720,7 +731,7 @@ func RemoveBillingHeaders(bodyBytes []byte, enableLog bool, apiType string) ([]b
 		modified = true
 
 		if enableLog {
-			log.Printf("[%s-Preprocess] 已移除 system 文本块中的 cch 计费参数", apiType)
+			RequestLogf(c, "[%s-Preprocess] 已移除 system 文本块中的 cch 计费参数", apiType)
 		}
 		break // 只处理第一个匹配的元素
 	}

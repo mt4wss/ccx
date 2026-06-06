@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -79,13 +78,14 @@ func Handler(
 
 		// 提取统一会话标识用于 Trace 亲和性
 		userID := utils.ExtractUnifiedSessionID(c, bodyBytes)
+		common.SetRequestLogContext(c, userID, countChatUserMessages(reqMap))
 
 		// 预处理：清理空 signature 字段，预防上游参数校验 400
-		bodyBytes, modified := common.RemoveEmptySignatures(bodyBytes, envCfg.EnableRequestLogs, "Chat")
+		bodyBytes, modified := common.RemoveEmptySignaturesWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Chat")
 		_ = modified
 
 		// 预处理：清理历史 thinking 内容块/字段，预防上游参数校验 400
-		bodyBytes, thinkingModified := common.SanitizeMalformedThinkingBlocks(bodyBytes, envCfg.EnableRequestLogs, "Chat")
+		bodyBytes, thinkingModified := common.SanitizeMalformedThinkingBlocksWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Chat")
 		_ = thinkingModified
 
 		// 记录原始请求信息
@@ -250,8 +250,29 @@ func handleSingleChannel(
 		return
 	}
 
-	log.Printf("[Chat-Error] 所有 API密钥都失败了")
+	common.RequestLogf(c, "[Chat-Error] 所有 API密钥都失败了")
 	handleAllKeysFailed(c, lastFailoverError, lastError)
+}
+
+func countChatUserMessages(req map[string]interface{}) int {
+	messages, ok := req["messages"].([]interface{})
+	if !ok {
+		return 0
+	}
+	count := 0
+	for _, item := range messages {
+		msg, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if role, _ := msg["role"].(string); role != "user" {
+			continue
+		}
+		if content, exists := msg["content"]; exists && content != nil {
+			count++
+		}
+	}
+	return count
 }
 
 func buildChatCompletionRequestBody(
@@ -703,8 +724,8 @@ func handleSuccess(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Chat-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
-		common.LogUpstreamResponse(resp, bodyBytes, envCfg, "Chat")
+		common.RequestLogf(c, "[Chat-Timing] 响应完成: %dms, 状态: %d", responseTime, resp.StatusCode)
+		common.LogUpstreamResponse(c, resp, bodyBytes, envCfg, "Chat")
 	}
 
 	switch upstreamType {
@@ -720,7 +741,7 @@ func handleSuccess(
 		if fuzzyMode {
 			var claudeTyped types.ClaudeResponse
 			if err := json.Unmarshal(bodyBytes, &claudeTyped); err == nil && common.IsClaudeResponseEmpty(&claudeTyped) {
-				log.Printf("[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
+				common.RequestLogf(c, "[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
 				return nil, common.ErrEmptyNonStreamResponse
 			}
 		}
@@ -751,7 +772,7 @@ func handleSuccess(
 		if fuzzyMode {
 			var respMap map[string]interface{}
 			if err := json.Unmarshal(chatRespBytes, &respMap); err == nil && common.IsChatResponseEmpty(respMap) {
-				log.Printf("[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
+				common.RequestLogf(c, "[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
 				return nil, common.ErrEmptyNonStreamResponse
 			}
 		}
@@ -779,7 +800,7 @@ func handleSuccess(
 			return nil, fmt.Errorf("%w: %v", common.ErrInvalidResponseBody, err)
 		}
 		if fuzzyMode && common.IsChatResponseEmpty(respMap) {
-			log.Printf("[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
+			common.RequestLogf(c, "[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
 			return nil, common.ErrEmptyNonStreamResponse
 		}
 		// 透传原始响应体（保留上游字段，避免 marshal 丢失）
@@ -917,21 +938,21 @@ func handleStreamSuccess(
 	logBuffer := common.NewLimitedLogBuffer(common.MaxUpstreamResponseLogBytes)
 	streamLoggingEnabled := envCfg.EnableResponseLogs && envCfg.IsDevelopment()
 
-	common.LogUpstreamResponseHeaders(resp, envCfg, "Chat")
+	common.LogUpstreamResponseHeaders(c, resp, envCfg, "Chat")
 
 	preflight, chunkChan, bodyErrChan, err := preflightChatStream(resp, upstreamType, timeouts)
 	if err != nil {
 		if errors.Is(err, common.ErrStreamFirstContentTimeout) {
-			log.Printf("[Chat-FirstContentTimeout] 流式首字超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
+			common.RequestLogf(c, "[Chat-FirstContentTimeout] 流式首字超时: %dms，触发重试", timeouts.FirstContentTimeoutMs)
 		} else if errors.Is(err, common.ErrStreamStalled) {
-			log.Printf("[Chat-StreamStalled] 流式断流: 首字后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
+			common.RequestLogf(c, "[Chat-StreamStalled] 流式断流: 首字后 %dms 无活动，触发重试", timeouts.InactivityTimeoutMs)
 		}
 		return nil, err
 	}
 	resp.Body = common.NewChunkChannelReadCloser(chunkChan, bodyErrChan, resp.Body)
 
 	if preflight.malformedToolName != "" {
-		log.Printf("[Chat-EmptyResponse] 上游返回空或畸形 tool_call（流式，upstreamType=%s, tool=%s），触发 failover", upstreamType, preflight.malformedToolName)
+		common.RequestLogf(c, "[Chat-EmptyResponse] 上游返回空或畸形 tool_call（流式，upstreamType=%s, tool=%s），触发 failover", upstreamType, preflight.malformedToolName)
 		return nil, common.ErrEmptyStreamResponse
 	}
 
@@ -943,9 +964,9 @@ func handleStreamSuccess(
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		log.Printf("[Chat-Stream] 警告: ResponseWriter 不支持 Flusher")
+		common.RequestLogf(c, "[Chat-Stream] 警告: ResponseWriter 不支持 Flusher")
 	}
-	progress := common.NewStreamProgressLogger("Chat", startTime, envCfg.ShouldLog("info"))
+	progress := common.NewStreamProgressLogger("Chat", startTime, envCfg.ShouldLog("info"), common.RequestLogTag(c))
 
 	switch upstreamType {
 	case "claude":
@@ -971,9 +992,9 @@ func handleStreamSuccess(
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
-		log.Printf("[Chat-Stream-Timing] 流式响应完成: %dms", responseTime)
+		common.RequestLogf(c, "[Chat-Stream-Timing] 流式响应完成: %dms", responseTime)
 		if logBuffer.Len() > 0 {
-			log.Printf("[Chat-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
+			common.RequestLogf(c, "[Chat-Stream] 上游流式响应原始内容:\n%s", logBuffer.String())
 		}
 	}
 
