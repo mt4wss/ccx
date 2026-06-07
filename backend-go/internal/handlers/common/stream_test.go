@@ -59,9 +59,9 @@ func TestResolveStreamToolCallIdleTimeout_ClampsToRange(t *testing.T) {
 		wantTimeout int
 	}{
 		{name: "below minimum", channel: 999, global: 3000, wantTimeout: 1000},
-		{name: "above maximum", channel: 60001, global: 3000, wantTimeout: 60000},
+		{name: "above maximum", channel: 180001, global: 3000, wantTimeout: 180000},
 		{name: "global below minimum", channel: 0, global: 999, wantTimeout: 1000},
-		{name: "global above maximum", channel: 0, global: 60001, wantTimeout: 60000},
+		{name: "global above maximum", channel: 0, global: 180001, wantTimeout: 180000},
 	}
 
 	for _, tt := range tests {
@@ -69,6 +69,29 @@ func TestResolveStreamToolCallIdleTimeout_ClampsToRange(t *testing.T) {
 			got := ResolveStreamToolCallIdleTimeout(tt.channel, tt.global)
 			if got != tt.wantTimeout {
 				t.Fatalf("ResolveStreamToolCallIdleTimeout(%d, %d) = %d, want %d", tt.channel, tt.global, got, tt.wantTimeout)
+			}
+		})
+	}
+}
+
+func TestResolveStreamInactivityTimeout_ClampsToRange(t *testing.T) {
+	tests := []struct {
+		name        string
+		channel     int
+		global      int
+		wantTimeout int
+	}{
+		{name: "below minimum", channel: 999, global: 3000, wantTimeout: 1000},
+		{name: "above maximum", channel: 180001, global: 3000, wantTimeout: 180000},
+		{name: "global below minimum", channel: 0, global: 999, wantTimeout: 1000},
+		{name: "global above maximum", channel: 0, global: 180001, wantTimeout: 180000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ResolveStreamInactivityTimeout(tt.channel, tt.global)
+			if got != tt.wantTimeout {
+				t.Fatalf("ResolveStreamInactivityTimeout(%d, %d) = %d, want %d", tt.channel, tt.global, got, tt.wantTimeout)
 			}
 		})
 	}
@@ -84,6 +107,21 @@ func TestProcessStreamEvent_TracksPendingToolCall(t *testing.T) {
 
 	if ctx.ToolCallTracker == nil || !ctx.ToolCallTracker.HasPendingToolCall() {
 		t.Fatalf("expected tool call tracker to mark pending tool call")
+	}
+}
+
+func TestSummarizeStreamEventForIdleLog_RedactsPayload(t *testing.T) {
+	event := "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_test\",\"name\":\"Write\",\"input\":{\"file_path\":\"/tmp/secret-plan.md\"}}}\n\n"
+
+	summary := summarizeStreamEventForIdleLog(event)
+
+	for _, want := range []string{"data_type=content_block_start", "block_type=tool_use", "tool=Write"} {
+		if !strings.Contains(summary, want) {
+			t.Fatalf("summary %q should contain %q", summary, want)
+		}
+	}
+	if strings.Contains(summary, "secret-plan") || strings.Contains(summary, "file_path") {
+		t.Fatalf("summary %q should not include raw tool arguments", summary)
 	}
 }
 

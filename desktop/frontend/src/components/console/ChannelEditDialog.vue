@@ -1675,12 +1675,12 @@ function buildCurrentPayload() {
                               v-model.number="form.streamInactivityTimeoutMs"
                               type="range"
                               min="1000"
-                              max="60000"
+                              max="180000"
                               step="1000"
                               class="cb-slider w-full"
                               :disabled="!form.streamInactivityTimeoutEnabled"
                             />
-                            <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>60s</span></div>
+                            <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>180s</span></div>
                           </div>
                         </div>
                         <div class="border border-border bg-background/60 p-3 space-y-2">
@@ -1700,12 +1700,12 @@ function buildCurrentPayload() {
                               v-model.number="form.streamToolCallIdleTimeoutMs"
                               type="range"
                               min="1000"
-                              max="60000"
+                              max="180000"
                               step="1000"
                               class="cb-slider w-full"
                               :disabled="!form.streamToolCallIdleTimeoutEnabled"
                             />
-                            <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>60s</span></div>
+                            <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>180s</span></div>
                           </div>
                         </div>
                       </div>

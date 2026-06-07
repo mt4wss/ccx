@@ -194,8 +194,8 @@ type CircuitBreakerConfig struct {
 	ConsecutiveFailuresThreshold *int     `json:"consecutiveFailuresThreshold,omitempty"`
 	// 流式健康检测全局默认参数
 	StreamFirstContentTimeoutMs *int `json:"streamFirstContentTimeoutMs,omitempty"` // HTTP 200 后首个有效内容等待超时（ms，范围 5000-300000）
-	StreamInactivityTimeoutMs   *int `json:"streamInactivityTimeoutMs,omitempty"`   // 首字后连续性确认窗口（ms，范围 1000-60000）
-	StreamToolCallIdleTimeoutMs *int `json:"streamToolCallIdleTimeoutMs,omitempty"` // 工具调用空闲超时（ms，范围 1000-60000）
+	StreamInactivityTimeoutMs   *int `json:"streamInactivityTimeoutMs,omitempty"`   // 首字后连续性确认窗口（ms，范围 1000-180000）
+	StreamToolCallIdleTimeoutMs *int `json:"streamToolCallIdleTimeoutMs,omitempty"` // 工具调用空闲超时（ms，范围 1000-180000）
 }
 
 type Config struct {
@@ -664,8 +664,8 @@ func (cm *ConfigManager) SetCircuitBreakerConfig(update CircuitBreakerConfig) er
 		v := *update.StreamInactivityTimeoutMs
 		if v < 1000 {
 			v = 1000
-		} else if v > 60000 {
-			v = 60000
+		} else if v > 180000 {
+			v = 180000
 		}
 		cb.StreamInactivityTimeoutMs = &v
 	}
@@ -673,8 +673,8 @@ func (cm *ConfigManager) SetCircuitBreakerConfig(update CircuitBreakerConfig) er
 		v := *update.StreamToolCallIdleTimeoutMs
 		if v < 1000 {
 			v = 1000
-		} else if v > 60000 {
-			v = 60000
+		} else if v > 180000 {
+			v = 180000
 		}
 		cb.StreamToolCallIdleTimeoutMs = &v
 	}

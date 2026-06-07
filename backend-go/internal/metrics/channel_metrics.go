@@ -2138,8 +2138,8 @@ type CircuitBreakerParams struct {
 	ConsecutiveFailuresThreshold int64   `json:"consecutiveFailuresThreshold"`
 	// 流式健康检测参数
 	StreamFirstContentTimeoutMs int `json:"streamFirstContentTimeoutMs"` // HTTP 200 后首个有效内容等待超时（ms，5000-300000）
-	StreamInactivityTimeoutMs   int `json:"streamInactivityTimeoutMs"`   // 首字后连续性确认窗口（ms，1000-60000）
-	StreamToolCallIdleTimeoutMs int `json:"streamToolCallIdleTimeoutMs"` // 工具调用空闲超时（ms，1000-60000）
+	StreamInactivityTimeoutMs   int `json:"streamInactivityTimeoutMs"`   // 首字后连续性确认窗口（ms，1000-180000）
+	StreamToolCallIdleTimeoutMs int `json:"streamToolCallIdleTimeoutMs"` // 工具调用空闲超时（ms，1000-180000）
 }
 
 // GetCircuitBreakerConfig 获取当前运行时生效的熔断器配置
@@ -2174,13 +2174,13 @@ func (m *MetricsManager) UpdateCircuitBreakerConfig(params CircuitBreakerParams)
 	}
 	if params.StreamInactivityTimeoutMs < 1000 {
 		params.StreamInactivityTimeoutMs = 1000
-	} else if params.StreamInactivityTimeoutMs > 60000 {
-		params.StreamInactivityTimeoutMs = 60000
+	} else if params.StreamInactivityTimeoutMs > 180000 {
+		params.StreamInactivityTimeoutMs = 180000
 	}
 	if params.StreamToolCallIdleTimeoutMs < 1000 {
 		params.StreamToolCallIdleTimeoutMs = 1000
-	} else if params.StreamToolCallIdleTimeoutMs > 60000 {
-		params.StreamToolCallIdleTimeoutMs = 60000
+	} else if params.StreamToolCallIdleTimeoutMs > 180000 {
+		params.StreamToolCallIdleTimeoutMs = 180000
 	}
 
 	m.mu.Lock()

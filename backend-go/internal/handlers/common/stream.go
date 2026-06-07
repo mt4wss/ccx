@@ -46,8 +46,8 @@ func streamPreflightEmptyError(preflight *StreamPreflightResult) error {
 // StreamPreflightTimeouts 流式预检测超时参数
 type StreamPreflightTimeouts struct {
 	FirstContentTimeoutMs int // 阶段A：首个有效内容等待超时（ms，范围 5000-300000）
-	InactivityTimeoutMs   int // 阶段B：首字后连续性确认窗口（ms，范围 1000-60000）
-	ToolCallIdleTimeoutMs int // 工具调用空闲超时（ms，范围 1000-60000）
+	InactivityTimeoutMs   int // 阶段B：首字后连续性确认窗口（ms，范围 1000-180000）
+	ToolCallIdleTimeoutMs int // 工具调用空闲超时（ms，范围 1000-180000）
 }
 
 // ResolveStreamFirstContentTimeout 解析首字等待超时：渠道 >0 覆盖全局，否则继承全局
@@ -72,8 +72,8 @@ func ResolveStreamInactivityTimeout(channelValue int, globalValue int) int {
 	}
 	if val < 1000 {
 		val = 1000
-	} else if val > 60000 {
-		val = 60000
+	} else if val > 180000 {
+		val = 180000
 	}
 	return val
 }
@@ -86,8 +86,8 @@ func ResolveStreamToolCallIdleTimeout(channelValue int, globalValue int) int {
 	}
 	if val < 1000 {
 		val = 1000
-	} else if val > 60000 {
-		val = 60000
+	} else if val > 180000 {
+		val = 180000
 	}
 	return val
 }
@@ -699,6 +699,83 @@ func HasStreamEventActivity(event string) bool {
 	return false
 }
 
+func summarizeStreamEventForIdleLog(event string) string {
+	eventType, blockIndex, blockType := extractSSEEventInfo(event)
+	lineCount, firstField := summarizeSSELineFields(event)
+	toolName := extractSSEToolName(event)
+
+	parts := []string{
+		fmt.Sprintf("event_len=%d", len(event)),
+		fmt.Sprintf("non_empty_lines=%d", lineCount),
+	}
+	if eventType != "" {
+		parts = append(parts, "data_type="+eventType)
+	} else if firstField != "" {
+		parts = append(parts, "first_field="+firstField)
+	}
+	if blockIndex > 0 || blockType != "" {
+		parts = append(parts, fmt.Sprintf("block_index=%d", blockIndex))
+	}
+	if blockType != "" {
+		parts = append(parts, "block_type="+blockType)
+	}
+	if toolName != "" {
+		parts = append(parts, "tool="+toolName)
+	}
+	return strings.Join(parts, " ")
+}
+
+func summarizeSSELineFields(event string) (int, string) {
+	lineCount := 0
+	firstField := ""
+	for _, line := range strings.Split(event, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		lineCount++
+		if firstField != "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(trimmed, ":"):
+			firstField = "comment"
+		case strings.HasPrefix(trimmed, "data:"):
+			firstField = "data"
+		case strings.HasPrefix(trimmed, "event:"):
+			firstField = "event"
+		case strings.HasPrefix(trimmed, "id:"):
+			firstField = "id"
+		case strings.HasPrefix(trimmed, "retry:"):
+			firstField = "retry"
+		default:
+			firstField = "unknown"
+		}
+	}
+	return lineCount, firstField
+}
+
+func extractSSEToolName(event string) string {
+	for _, line := range strings.Split(event, "\n") {
+		jsonStr, ok := extractSSEJSONLine(line)
+		if !ok {
+			continue
+		}
+
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+			continue
+		}
+
+		if cb, ok := data["content_block"].(map[string]interface{}); ok {
+			if name, ok := cb["name"].(string); ok && name != "" {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
 // HasClaudeSemanticContent 判断 Claude/Messages 风格 SSE 是否包含有效语义内容
 func HasClaudeSemanticContent(event string) bool {
 	for _, line := range strings.Split(event, "\n") {
@@ -868,6 +945,8 @@ type StreamContext struct {
 	ContentBlockCount int            // content block 计数
 	ContentBlockTypes map[int]string // 每个 block 的类型
 	ToolCallTracker   *StreamToolCallTracker
+	LastEventAt       time.Time // 最近一次本地处理 SSE 事件的时间
+	LastEventSummary  string    // 最近一次 SSE 事件摘要，不包含正文或参数
 	// 低质量渠道处理
 	RequestModel string // 请求中的 model（用于一致性检查）
 	LowQuality   bool   // 是否为低质量渠道
@@ -1059,10 +1138,20 @@ func ProcessStreamEvents(
 				return nil, err
 			}
 		case <-postCommitChan:
-			if toolCallPending {
-				RequestLogf(c, "[Messages-StreamStalled] 流式断流: 工具调用阶段空闲 %dms 无上游输出（Header 已发送）", activeTimeoutMs)
+			lastEventAgeMs := int64(-1)
+			lastEventSummary := "none"
+			if ctx.LastEventAt.IsZero() {
+				lastEventAgeMs = time.Since(startTime).Milliseconds()
 			} else {
-				RequestLogf(c, "[Messages-StreamStalled] 流式断流: Header 已发送后 %dms 无上游输出", activeTimeoutMs)
+				lastEventAgeMs = time.Since(ctx.LastEventAt).Milliseconds()
+				if ctx.LastEventSummary != "" {
+					lastEventSummary = ctx.LastEventSummary
+				}
+			}
+			if toolCallPending {
+				RequestLogf(c, "[Messages-StreamStalled] 流式断流: 工具调用阶段空闲 %dms 无上游输出（Header 已发送，最后本地事件距今 %dms，%s）", activeTimeoutMs, lastEventAgeMs, lastEventSummary)
+			} else {
+				RequestLogf(c, "[Messages-StreamStalled] 流式断流: Header 已发送后 %dms 无上游输出（最后本地事件距今 %dms，%s）", activeTimeoutMs, lastEventAgeMs, lastEventSummary)
 			}
 			logPartialResponse(ctx, envCfg)
 			if !ctx.ClientGone {
@@ -1088,6 +1177,8 @@ func ProcessStreamEvent(
 ) {
 	// SSE 事件调试日志
 	ctx.EventCount++
+	ctx.LastEventAt = time.Now()
+	ctx.LastEventSummary = summarizeStreamEventForIdleLog(event)
 	if envCfg.SSEDebugLevel == "full" || envCfg.SSEDebugLevel == "summary" {
 		eventType, blockIndex, blockType := extractSSEEventInfo(event)
 		if eventType == "content_block_start" {

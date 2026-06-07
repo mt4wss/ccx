@@ -70,14 +70,29 @@ func TestSetCircuitBreaker_AcceptsToolCallIdleTimeout(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfgManager := newSettingsTestConfigManager(t)
 
-	w := performSettingsJSON(SetCircuitBreaker(cfgManager), http.MethodPut, `{"streamToolCallIdleTimeoutMs":3000}`)
+	w := performSettingsJSON(SetCircuitBreaker(cfgManager), http.MethodPut, `{"streamToolCallIdleTimeoutMs":180000}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
 	}
 
 	value := cfgManager.GetCircuitBreakerConfig().StreamToolCallIdleTimeoutMs
-	if value == nil || *value != 3000 {
-		t.Fatalf("saved streamToolCallIdleTimeoutMs = %v, want 3000", value)
+	if value == nil || *value != 180000 {
+		t.Fatalf("saved streamToolCallIdleTimeoutMs = %v, want 180000", value)
+	}
+}
+
+func TestSetCircuitBreaker_AcceptsInactivityTimeout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newSettingsTestConfigManager(t)
+
+	w := performSettingsJSON(SetCircuitBreaker(cfgManager), http.MethodPut, `{"streamInactivityTimeoutMs":180000}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	value := cfgManager.GetCircuitBreakerConfig().StreamInactivityTimeoutMs
+	if value == nil || *value != 180000 {
+		t.Fatalf("saved streamInactivityTimeoutMs = %v, want 180000", value)
 	}
 }
 

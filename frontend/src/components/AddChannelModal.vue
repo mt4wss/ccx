@@ -1151,13 +1151,13 @@
                     v-model.number="form.streamInactivityTimeoutMs"
                     type="range"
                     min="1000"
-                    max="60000"
+                    max="180000"
                     step="1000"
                     class="w-100"
                     :disabled="!form.streamInactivityTimeoutEnabled"
                   />
                   <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>1s</span><span>60s</span>
+                    <span>1s</span><span>180s</span>
                   </div>
                   <div class="text-caption text-medium-emphasis mt-2">
                     {{ form.streamInactivityTimeoutEnabled ? t('addChannel.streamTimeoutOverrideHint') : t('addChannel.streamTimeoutInheritHint') }}
@@ -1184,13 +1184,13 @@
                     v-model.number="form.streamToolCallIdleTimeoutMs"
                     type="range"
                     min="1000"
-                    max="60000"
+                    max="180000"
                     step="1000"
                     class="w-100"
                     :disabled="!form.streamToolCallIdleTimeoutEnabled"
                   />
                   <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>1s</span><span>60s</span>
+                    <span>1s</span><span>180s</span>
                   </div>
                   <div class="text-caption text-medium-emphasis mt-2">
                     {{ form.streamToolCallIdleTimeoutEnabled ? t('addChannel.streamTimeoutOverrideHint') : t('addChannel.streamTimeoutInheritHint') }}

@@ -297,13 +297,13 @@ onMounted(() => {
             type="range"
             :value="form.streamInactivityTimeoutMs"
             :min="1000"
-            :max="60000"
+            :max="180000"
             step="1000"
             class="cb-slider w-full"
             :disabled="!status.running"
             @input="onSliderChange('streamInactivityTimeoutMs', $event)"
           />
-          <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>60s</span></div>
+          <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>180s</span></div>
         </div>
 
         <div class="w-px bg-border mx-1 self-stretch" />
@@ -318,13 +318,13 @@ onMounted(() => {
             type="range"
             :value="form.streamToolCallIdleTimeoutMs"
             :min="1000"
-            :max="60000"
+            :max="180000"
             step="1000"
             class="cb-slider w-full"
             :disabled="!status.running"
             @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
           />
-          <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>60s</span></div>
+          <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>180s</span></div>
         </div>
       </div>
 

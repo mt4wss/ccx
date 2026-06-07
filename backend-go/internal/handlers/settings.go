@@ -129,14 +129,14 @@ func SetCircuitBreaker(cfgManager *config.ConfigManager) gin.HandlerFunc {
 			}
 		}
 		if req.StreamInactivityTimeoutMs != nil {
-			if *req.StreamInactivityTimeoutMs < 1000 || *req.StreamInactivityTimeoutMs > 60000 {
-				c.JSON(400, gin.H{"error": "streamInactivityTimeoutMs 必须在 1000-60000 之间"})
+			if *req.StreamInactivityTimeoutMs < 1000 || *req.StreamInactivityTimeoutMs > 180000 {
+				c.JSON(400, gin.H{"error": "streamInactivityTimeoutMs 必须在 1000-180000 之间"})
 				return
 			}
 		}
 		if req.StreamToolCallIdleTimeoutMs != nil {
-			if *req.StreamToolCallIdleTimeoutMs < 1000 || *req.StreamToolCallIdleTimeoutMs > 60000 {
-				c.JSON(400, gin.H{"error": "streamToolCallIdleTimeoutMs 必须在 1000-60000 之间"})
+			if *req.StreamToolCallIdleTimeoutMs < 1000 || *req.StreamToolCallIdleTimeoutMs > 180000 {
+				c.JSON(400, gin.H{"error": "streamToolCallIdleTimeoutMs 必须在 1000-180000 之间"})
 				return
 			}
 		}

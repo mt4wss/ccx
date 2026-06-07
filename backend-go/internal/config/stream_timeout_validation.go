@@ -6,9 +6,9 @@ const (
 	minStreamFirstContentTimeoutMs = 5000
 	maxStreamFirstContentTimeoutMs = 300000
 	minStreamInactivityTimeoutMs   = 1000
-	maxStreamInactivityTimeoutMs   = 60000
+	maxStreamInactivityTimeoutMs   = 180000
 	minStreamToolCallIdleTimeoutMs = 1000
-	maxStreamToolCallIdleTimeoutMs = 60000
+	maxStreamToolCallIdleTimeoutMs = 180000
 )
 
 func validateStreamFirstContentTimeoutMs(value int) error {
