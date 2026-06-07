@@ -104,6 +104,8 @@ watch(selectedProvider, (id) => {
   selectedPlan.value = bestPlanForTarget(preset, preset.defaultTarget)
   apiKey.value = ''
   channelName.value = buildChannelName(preset, preset.defaultTarget, selectedPlan.value)
+  result.value = null
+  localError.value = ''
 })
 
 // target 变化时重新加载后端过滤后的 plans，尽量保留已选 plan；

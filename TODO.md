@@ -54,9 +54,11 @@ Windows 系统下桌面应用图标周边没有透明背景，需要修正图标
 **关键提交：**
 - `cf1d867b` fix(desktop): 修复 Windows 图标透明度并补全 Codex 预设模板
 
-## [ ] 桌面端渠道中心成功提示清理
+## [x] 桌面端渠道中心成功提示清理
 
 桌面端渠道中心中，一个渠道添加成功后切换到另一个渠道时，之前的"添加成功"提示没有清除。需要在渠道切换或表单重置时同步清理成功提示状态，避免误导用户。
+
+**修复方式：** 在 `ChannelTab.vue` 的 `watch(selectedProvider)` 中同步清除 `result` 和 `localError`。
 
 ## [x] GPT 类型上游模型测试覆盖 codex-auto-review
 
