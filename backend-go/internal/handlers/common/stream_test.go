@@ -529,6 +529,28 @@ func TestPreflightStreamEvents_TrueEmptyStillDetected(t *testing.T) {
 	}
 }
 
+func TestPreflightStreamEvents_ContentBlockStopWithoutPendingStillEmpty(t *testing.T) {
+	events := []string{
+		"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":100,\"output_tokens\":0}}}\n\n",
+		"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+		"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+	}
+
+	eventChan := make(chan string, len(events))
+	errChan := make(chan error)
+	for _, e := range events {
+		eventChan <- e
+	}
+	close(eventChan)
+	close(errChan)
+
+	result := PreflightStreamEvents(eventChan, errChan, StreamPreflightTimeouts{})
+	if !result.IsEmpty {
+		t.Fatalf("text content_block_stop without pending tool call should stay empty, got BufferedEvents=%d", len(result.BufferedEvents))
+	}
+}
+
 func TestPreflightStreamEvents_UnknownEventTypeRecordedInDiagnostic(t *testing.T) {
 	eventChan := make(chan string, 2)
 	errChan := make(chan error, 1)
@@ -989,5 +1011,75 @@ data: {"type":"error","error":{"message":"No active subscription found for this 
 				t.Fatalf("DetectStreamBlacklistError() = (%q, %q), want (%q, %q)", gotReason, gotMessage, tt.wantReason, tt.wantMessage)
 			}
 		})
+	}
+}
+
+func TestPreflightStreamEvents_TextThenPendingToolCallReturnsAsNonEmpty(t *testing.T) {
+	eventChan := make(chan string, 10)
+	errChan := make(chan error, 1)
+
+	e1 := `event: message_start
+data: {"type":"message_start","message":{"usage":{"input_tokens":10,"output_tokens":0}}}
+`
+	e2 := `event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+`
+	e3 := `event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}
+`
+	e4 := `event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+`
+	e5 := `event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"call_test","name":"Read","input":{}}}
+`
+
+	events := []string{e1, e2, e3, e4, e5}
+	for _, e := range events {
+		eventChan <- e
+	}
+
+	result := PreflightStreamEvents(eventChan, errChan, StreamPreflightTimeouts{
+		InactivityTimeoutMs: 200,
+	})
+
+	if result.IsEmpty {
+		t.Fatalf("expected IsEmpty=false for stream with text + tool_use, got BufferedEvents=%d", len(result.BufferedEvents))
+	}
+	if result.HasError {
+		t.Fatalf("expected no error because text content already made stream non-empty, got %v", result.Error)
+	}
+	close(eventChan)
+	close(errChan)
+}
+
+func TestPreflightStreamEvents_CompletedToolCallWithoutTextIsNotEmpty(t *testing.T) {
+	eventChan := make(chan string, 10)
+	errChan := make(chan error, 1)
+
+	event1 := `event: message_start
+data: {"type":"message_start","message":{"usage":{"input_tokens":10,"output_tokens":0}}}
+`
+	event2 := `event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"call_calc","name":"calculator","input":{}}}
+`
+
+	eventChan <- event1
+	eventChan <- event2
+
+	stopEvent := `event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+`
+
+	eventChan <- stopEvent
+	close(eventChan)
+	close(errChan)
+
+	result := PreflightStreamEvents(eventChan, errChan, StreamPreflightTimeouts{})
+	if result.IsEmpty {
+		t.Fatalf("expected completed tool call without text to be non-empty, got BufferedEvents=%d", len(result.BufferedEvents))
+	}
+	if result.HasError {
+		t.Fatalf("expected no error after tool call closed, got %v", result.Error)
 	}
 }

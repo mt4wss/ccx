@@ -191,12 +191,31 @@ func PreflightStreamEvents(eventChan <-chan string, errChan <-chan error, timeou
 				}
 			}
 
+			hadPending := toolTracker.HasPendingToolCall()
 			if malformed, name := toolTracker.ProcessClaudeEvent(event); malformed {
 				result.IsEmpty = true
 				result.MalformedToolCall = true
 				result.MalformedToolCallName = name
 				result.Diagnostic = fmt.Sprintf("malformed tool call: %s", name)
 				return result
+			}
+			// 检测工具调用是否刚闭合：标记为 non-text 内容
+			if hadPending && !toolTracker.HasPendingToolCall() && !hasNonTextContent {
+				hasNonTextContent = true
+				if !hasFirstContent {
+					hasFirstContent = true
+					if firstContentTimer != nil {
+						firstContentTimer.Stop()
+					}
+					if timeouts.InactivityTimeoutMs > 0 {
+						inactivityTimer = time.NewTimer(time.Duration(timeouts.InactivityTimeoutMs) * time.Millisecond)
+						inactivityChan = inactivityTimer.C
+						defer inactivityTimer.Stop()
+					}
+					if timeouts.InactivityTimeoutMs <= 0 {
+						return result
+					}
+				}
 			}
 
 			// 检测非文本 content block（tool_use / thinking）。tool_use 需等参数完整后再放行。
