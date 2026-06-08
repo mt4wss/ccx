@@ -51,23 +51,30 @@ const presetOrder = [
   'compshare',
   'runapi',
   'kimi',
+  'kimi-code',
   'glm',
   'minimax',
   'dashscope',
-  'dashscope',
   'tencent-lkeap',
+  'volc-ark',
+  'qianfan',
   'opencode-zen',
   'opencode-go',
 ]
 const presetRank = new Map(presetOrder.map((id, index) => [id, index]))
 
+// 暂不在渠道中心展示的 preset（后端仍提供，作为后备或后续开放）。
+const hiddenPresetIds = new Set(['originrouter'])
+
 // 有 Key 的 provider 组整体提前；组内仍保持固定产品顺序，避免 Key 状态改变组内排序。
 const orderedPresets = computed(() =>
-  [...presets.value].sort((a, b) => {
-    const keyDiff = Number(!!keysByProvider.value[b.id]) - Number(!!keysByProvider.value[a.id])
-    if (keyDiff !== 0) return keyDiff
-    return (presetRank.get(a.id) ?? presetOrder.length) - (presetRank.get(b.id) ?? presetOrder.length)
-  }),
+  presets.value
+    .filter((preset) => !hiddenPresetIds.has(preset.id))
+    .sort((a, b) => {
+      const keyDiff = Number(!!keysByProvider.value[b.id]) - Number(!!keysByProvider.value[a.id])
+      if (keyDiff !== 0) return keyDiff
+      return (presetRank.get(a.id) ?? presetOrder.length) - (presetRank.get(b.id) ?? presetOrder.length)
+    }),
 )
 
 const currentPreset = computed(() => {

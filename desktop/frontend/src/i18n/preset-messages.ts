@@ -67,9 +67,7 @@ export const presetMessages: Record<SupportedLocale, Record<string, string>> = {
       "RunAPI is an efficient and stable API platform—an alternative to OpenRouter. A single API Key gives you access to 150+ leading models, including OpenAI, Claude, Gemini, DeepSeek, Grok, and more, at prices as low as 10% of the original (up to 90% off), with exceptional stability. It's seamlessly compatible with tools like Claude Code, OpenClaw, and others. RunAPI offers an exclusive perk for CCX users: register and contact an administrator to claim ¥7 in free credit.",
     'channel.preset.runapi.plan.anthropic.description': 'Claude Messages native endpoint',
     'channel.preset.runapi.plan.openai-chat.description':
-      'OpenAI Chat compatible endpoint',
-    'channel.preset.runapi.target.responses.plan.openai-chat.label': 'Responses native',
-    'channel.preset.runapi.target.responses.plan.openai-chat.description': 'Native Responses endpoint for Codex',
+      'Common Chat / Responses endpoint',
 
     // Kimi
     'channel.preset.kimi.description':
@@ -107,6 +105,18 @@ export const presetMessages: Record<SupportedLocale, Record<string, string>> = {
     // Tencent Lkeap
     'channel.preset.tencent-lkeap.plan.anthropic.description': 'Claude Messages native endpoint',
     'channel.preset.tencent-lkeap.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Kimi Code Plan
+    'channel.preset.kimi-code.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.kimi-code.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Volcengine Ark Coding Plan
+    'channel.preset.volc-ark.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.volc-ark.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Baidu Qianfan Coding Plan
+    'channel.preset.qianfan.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.qianfan.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Youyun OriginRouter
+    'channel.preset.originrouter.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.originrouter.plan.openai-chat.description': 'Common Chat / Responses endpoint',
     'channel.preset.dashscope.plan.token-plan-anthropic.description':
       'Token Plan Claude Messages native endpoint',
     'channel.preset.dashscope.plan.token-plan-openai-chat.description':

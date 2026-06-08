@@ -153,8 +153,22 @@ export type MessageKey =
   | 'channel.preset.tencent-lkeap.plan.anthropic.description'
   | 'channel.preset.tencent-lkeap.plan.openai-chat.label'
   | 'channel.preset.tencent-lkeap.plan.openai-chat.description'
-  | 'channel.preset.runapi.target.responses.plan.openai-chat.label'
-  | 'channel.preset.runapi.target.responses.plan.openai-chat.description'
+  | 'channel.preset.kimi-code.plan.anthropic.label'
+  | 'channel.preset.kimi-code.plan.anthropic.description'
+  | 'channel.preset.kimi-code.plan.openai-chat.label'
+  | 'channel.preset.kimi-code.plan.openai-chat.description'
+  | 'channel.preset.volc-ark.plan.anthropic.label'
+  | 'channel.preset.volc-ark.plan.anthropic.description'
+  | 'channel.preset.volc-ark.plan.openai-chat.label'
+  | 'channel.preset.volc-ark.plan.openai-chat.description'
+  | 'channel.preset.qianfan.plan.anthropic.label'
+  | 'channel.preset.qianfan.plan.anthropic.description'
+  | 'channel.preset.qianfan.plan.openai-chat.label'
+  | 'channel.preset.qianfan.plan.openai-chat.description'
+  | 'channel.preset.originrouter.plan.anthropic.label'
+  | 'channel.preset.originrouter.plan.anthropic.description'
+  | 'channel.preset.originrouter.plan.openai-chat.label'
+  | 'channel.preset.originrouter.plan.openai-chat.description'
   // Kimi plans
   | 'channel.preset.kimi.plan.anthropic.label'
   | 'channel.preset.kimi.plan.anthropic.description'
@@ -766,9 +780,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'channel.preset.runapi.plan.anthropic.label': 'Anthropic-compatible',
     'channel.preset.runapi.plan.anthropic.description': 'Claude Messages native endpoint',
     'channel.preset.runapi.plan.openai-chat.label': 'OpenAI-compatible',
-    'channel.preset.runapi.plan.openai-chat.description': 'OpenAI Chat compatible endpoint',
-    'channel.preset.runapi.target.responses.plan.openai-chat.label': 'Responses native',
-    'channel.preset.runapi.target.responses.plan.openai-chat.description': 'Native Responses endpoint for Codex',
+    'channel.preset.runapi.plan.openai-chat.description': 'Common Chat / Responses endpoint',
     // Kimi plans
     'channel.preset.kimi.plan.anthropic.label': 'Anthropic-compatible',
     'channel.preset.kimi.plan.anthropic.description': 'Claude Messages native endpoint',
@@ -800,6 +812,26 @@ export const messages: Record<SupportedLocale, Messages> = {
     'channel.preset.tencent-lkeap.plan.anthropic.description': 'Claude Messages native endpoint',
     'channel.preset.tencent-lkeap.plan.openai-chat.label': 'OpenAI-compatible',
     'channel.preset.tencent-lkeap.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Kimi Code Plan plans
+    'channel.preset.kimi-code.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.kimi-code.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.kimi-code.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.kimi-code.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Volcengine Ark Coding Plan plans
+    'channel.preset.volc-ark.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.volc-ark.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.volc-ark.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.volc-ark.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Baidu Qianfan Coding Plan plans
+    'channel.preset.qianfan.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.qianfan.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.qianfan.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.qianfan.plan.openai-chat.description': 'Common Chat / Responses endpoint',
+    // Youyun OriginRouter plans
+    'channel.preset.originrouter.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.originrouter.plan.anthropic.description': 'Claude Messages native endpoint',
+    'channel.preset.originrouter.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.originrouter.plan.openai-chat.description': 'Common Chat / Responses endpoint',
     // OpenCode Zen plans
     'channel.preset.opencode-zen.plan.anthropic.label': 'Anthropic-compatible',
     'channel.preset.opencode-zen.plan.anthropic.description': 'Claude Messages native endpoint',
@@ -1382,9 +1414,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'channel.preset.runapi.plan.anthropic.label': 'Anthropic-compatible',
     'channel.preset.runapi.plan.anthropic.description': 'Claude Messages 原生入口',
     'channel.preset.runapi.plan.openai-chat.label': 'OpenAI-compatible',
-    'channel.preset.runapi.plan.openai-chat.description': 'OpenAI Chat 兼容入口',
-    'channel.preset.runapi.target.responses.plan.openai-chat.label': 'Responses 原生',
-    'channel.preset.runapi.target.responses.plan.openai-chat.description': '面向 Codex 的 Responses 原生接口',
+    'channel.preset.runapi.plan.openai-chat.description': 'Chat / Responses 通用入口',
     // Kimi plans
     'channel.preset.kimi.plan.anthropic.label': 'Anthropic-compatible',
     'channel.preset.kimi.plan.anthropic.description': 'Claude Messages 原生入口',
@@ -1414,6 +1444,26 @@ export const messages: Record<SupportedLocale, Messages> = {
     'channel.preset.tencent-lkeap.plan.anthropic.description': 'Claude Messages 原生入口',
     'channel.preset.tencent-lkeap.plan.openai-chat.label': 'OpenAI-compatible',
     'channel.preset.tencent-lkeap.plan.openai-chat.description': 'Chat / Responses 通用入口',
+    // Kimi Code Plan plans
+    'channel.preset.kimi-code.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.kimi-code.plan.anthropic.description': 'Claude Messages 原生入口',
+    'channel.preset.kimi-code.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.kimi-code.plan.openai-chat.description': 'Chat / Responses 通用入口',
+    // Volcengine Ark Coding Plan plans
+    'channel.preset.volc-ark.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.volc-ark.plan.anthropic.description': 'Claude Messages 原生入口',
+    'channel.preset.volc-ark.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.volc-ark.plan.openai-chat.description': 'Chat / Responses 通用入口',
+    // Baidu Qianfan Coding Plan plans
+    'channel.preset.qianfan.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.qianfan.plan.anthropic.description': 'Claude Messages 原生入口',
+    'channel.preset.qianfan.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.qianfan.plan.openai-chat.description': 'Chat / Responses 通用入口',
+    // Youyun OriginRouter plans
+    'channel.preset.originrouter.plan.anthropic.label': 'Anthropic-compatible',
+    'channel.preset.originrouter.plan.anthropic.description': 'Claude Messages 原生入口',
+    'channel.preset.originrouter.plan.openai-chat.label': 'OpenAI-compatible',
+    'channel.preset.originrouter.plan.openai-chat.description': 'Chat / Responses 通用入口',
     'channel.preset.dashscope.plan.coding-openai-chat.label': 'Coding Plan (OpenAI)',
     'channel.preset.dashscope.plan.coding-openai-chat.description': 'Coding Plan Chat / Responses 通用入口',
     // OpenCode Zen plans

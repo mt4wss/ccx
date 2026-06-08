@@ -8,17 +8,21 @@ import (
 )
 
 const (
-	ProviderDeepSeek    = "deepseek"
-	ProviderMiMo        = "mimo"
-	ProviderCompshare   = "compshare"
-	ProviderRunAPI      = "runapi"
-	ProviderKimi        = "kimi"
-	ProviderGLM         = "glm"
-	ProviderMiniMax     = "minimax"
-	ProviderDashScope   = "dashscope"
-	ProviderTencentLkeap  = "tencent-lkeap"
-	ProviderOpenCodeZen = "opencode-zen"
-	ProviderOpenCodeGo  = "opencode-go"
+	ProviderDeepSeek     = "deepseek"
+	ProviderMiMo         = "mimo"
+	ProviderCompshare    = "compshare"
+	ProviderRunAPI       = "runapi"
+	ProviderKimi         = "kimi"
+	ProviderGLM          = "glm"
+	ProviderMiniMax      = "minimax"
+	ProviderDashScope    = "dashscope"
+	ProviderTencentLkeap = "tencent-lkeap"
+	ProviderKimiCode     = "kimi-code"
+	ProviderVolcArk      = "volc-ark"
+	ProviderQianfan      = "qianfan"
+	ProviderOriginRouter = "originrouter"
+	ProviderOpenCodeZen  = "opencode-zen"
+	ProviderOpenCodeGo   = "opencode-go"
 
 	TargetMessages  = "messages"
 	TargetChat      = "chat"
@@ -113,17 +117,21 @@ type ChannelPayload struct {
 }
 
 var providerConsoleURLs = map[string]string{
-	ProviderDeepSeek:    "https://platform.deepseek.com/usage",
-	ProviderMiMo:        "https://platform.xiaomimimo.com/console/balance",
-	ProviderCompshare:   "https://console.compshare.cn/light-gpu/model-manage",
-	ProviderRunAPI:      "https://runapi.co/console",
-	ProviderKimi:        "https://platform.moonshot.cn/console/account",
-	ProviderGLM:         "https://open.bigmodel.cn/coding-plan/personal/overview",
-	ProviderMiniMax:     "https://platform.minimaxi.com/user-center/payment/balance",
-	ProviderDashScope:   "https://bailian.console.aliyun.com/cn-beijing?tab=model#/api-key",
+	ProviderDeepSeek:     "https://platform.deepseek.com/usage",
+	ProviderMiMo:         "https://platform.xiaomimimo.com/console/balance",
+	ProviderCompshare:    "https://console.compshare.cn/light-gpu/model-manage",
+	ProviderRunAPI:       "https://runapi.co/console",
+	ProviderKimi:         "https://platform.moonshot.cn/console/account",
+	ProviderGLM:          "https://open.bigmodel.cn/coding-plan/personal/overview",
+	ProviderMiniMax:      "https://platform.minimaxi.com/user-center/payment/balance",
+	ProviderDashScope:    "https://bailian.console.aliyun.com/cn-beijing?tab=model#/api-key",
 	ProviderTencentLkeap: "https://console.cloud.tencent.com/lkeap/token-plan",
-	ProviderOpenCodeZen: "https://opencode.ai/",
-	ProviderOpenCodeGo:  "https://opencode.ai/",
+	ProviderKimiCode:     "https://www.kimi.com/code/console",
+	ProviderVolcArk:      "https://console.volcengine.com/ark",
+	ProviderQianfan:      "https://console.bce.baidu.com/qianfan/resource/subscribe",
+	ProviderOriginRouter: "https://easytransnote.com/ai/console/#key",
+	ProviderOpenCodeZen:  "https://opencode.ai/",
+	ProviderOpenCodeGo:   "https://opencode.ai/",
 }
 
 func Presets() []ProviderPreset {
@@ -351,6 +359,86 @@ func Presets() []ProviderPreset {
 			Plans: []ProviderPlan{
 				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://api.lkeap.cloud.tencent.com/plan/anthropic", Description: "Claude Messages 原生入口", Recommended: true},
 				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://api.lkeap.cloud.tencent.com/plan/v3", Description: "Chat / Responses 通用入口"},
+			},
+			Targets: []ChannelTarget{
+				{Type: TargetMessages, Label: "Messages 原生透传", Description: "Claude Code 直连或 CCX messages 渠道", Recommended: true},
+				{Type: TargetResponses, Label: "Codex Responses", Description: "OpenAI Responses 协议，供 Codex 使用"},
+				{Type: TargetChat, Label: "Chat 渠道透传", Description: "OpenAI Chat 协议，供 Chat 客户端使用"},
+			},
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:                  ProviderKimiCode,
+			Order:               55,
+			Label:               "Kimi Code Plan",
+			Description:         "Kimi 会员 Coding Plan 编程套餐，原生支持 Anthropic/OpenAI 双协议，适配 Claude Code、OpenCode、Roo Code 等主流编码工具。",
+			DirectAgent:         false,
+			NativeMessages:      true,
+			ChatCompatible:      true,
+			ResponsesCompatible: true,
+			Plans: []ProviderPlan{
+				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://api.kimi.com/coding", Description: "Claude Messages 原生入口", Recommended: true},
+				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://api.kimi.com/coding/v1", Description: "Chat / Responses 通用入口"},
+			},
+			Targets: []ChannelTarget{
+				{Type: TargetMessages, Label: "Messages 原生透传", Description: "Claude Code 直连或 CCX messages 渠道", Recommended: true},
+				{Type: TargetResponses, Label: "Codex Responses", Description: "OpenAI Responses 协议，供 Codex 使用"},
+				{Type: TargetChat, Label: "Chat 渠道透传", Description: "OpenAI Chat 协议，供 Chat 客户端使用"},
+			},
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:                  ProviderVolcArk,
+			Order:               86,
+			Label:               "火山方舟 Coding Plan",
+			Description:         "火山引擎方舟 Coding Plan（豆包）订阅套餐，覆盖 Doubao、DeepSeek、Kimi、GLM、MiniMax 等模型，原生支持 Anthropic/OpenAI 双协议，适配 Claude Code、Codex、OpenCode、Cursor 等工具。",
+			DirectAgent:         false,
+			NativeMessages:      true,
+			ChatCompatible:      true,
+			ResponsesCompatible: true,
+			Plans: []ProviderPlan{
+				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://ark.cn-beijing.volces.com/api/coding", Description: "Claude Messages 原生入口", Recommended: true},
+				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://ark.cn-beijing.volces.com/api/coding/v3", Description: "Chat / Responses 通用入口"},
+			},
+			Targets: []ChannelTarget{
+				{Type: TargetMessages, Label: "Messages 原生透传", Description: "Claude Code 直连或 CCX messages 渠道", Recommended: true},
+				{Type: TargetResponses, Label: "Codex Responses", Description: "OpenAI Responses 协议，供 Codex 使用"},
+				{Type: TargetChat, Label: "Chat 渠道透传", Description: "OpenAI Chat 协议，供 Chat 客户端使用"},
+			},
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:                  ProviderQianfan,
+			Order:               87,
+			Label:               "百度千帆 Coding Plan",
+			Description:         "百度智能云千帆 Coding Plan 订阅套餐，覆盖文心、DeepSeek、GLM、Kimi、MiniMax 等模型，原生支持 Anthropic/OpenAI 双协议，适配 Claude Code、Codex、OpenCode、Cursor 等工具。",
+			DirectAgent:         false,
+			NativeMessages:      true,
+			ChatCompatible:      true,
+			ResponsesCompatible: true,
+			Plans: []ProviderPlan{
+				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://qianfan.baidubce.com/anthropic/coding", Description: "Claude Messages 原生入口", Recommended: true},
+				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://qianfan.baidubce.com/v2/coding", Description: "Chat / Responses 通用入口"},
+			},
+			Targets: []ChannelTarget{
+				{Type: TargetMessages, Label: "Messages 原生透传", Description: "Claude Code 直连或 CCX messages 渠道", Recommended: true},
+				{Type: TargetResponses, Label: "Codex Responses", Description: "OpenAI Responses 协议，供 Codex 使用"},
+				{Type: TargetChat, Label: "Chat 渠道透传", Description: "OpenAI Chat 协议，供 Chat 客户端使用"},
+			},
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:                  ProviderOriginRouter,
+			Order:               200,
+			Label:               "极易云 OriginRouter",
+			Description:         "极易云 OriginRouter Coding Plan 编程套餐，原生支持 Anthropic/OpenAI 双协议，兼容 Claude Code、OpenCode、Cline 等工具。",
+			DirectAgent:         false,
+			NativeMessages:      true,
+			ChatCompatible:      true,
+			ResponsesCompatible: true,
+			Plans: []ProviderPlan{
+				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://api.easytransnote.com/coding", Description: "Claude Messages 原生入口", Recommended: true},
+				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://api.easytransnote.com/coding/v1", Description: "Chat / Responses 通用入口"},
 			},
 			Targets: []ChannelTarget{
 				{Type: TargetMessages, Label: "Messages 原生透传", Description: "Claude Code 直连或 CCX messages 渠道", Recommended: true},
