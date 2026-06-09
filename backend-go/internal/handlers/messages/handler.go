@@ -54,12 +54,7 @@ func Handler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, channel
 		bodyBytes, thinkingModified := common.SanitizeMalformedThinkingBlocksWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Messages")
 		_ = thinkingModified // 保留以便未来扩展（如需在 handler 层面做额外处理）
 
-		// 预处理：移除 system 中的 cch= 计费参数
-		if cfgManager.GetStripBillingHeader() {
-			bodyBytes, _ = common.RemoveBillingHeadersWithContext(c, bodyBytes, envCfg.EnableRequestLogs, "Messages")
-		}
-
-		// 入口保留原始请求体；按渠道在发往上游前决定是否规范化 metadata.user_id
+		// 入口保留原始请求体；按渠道在发往上游前决定是否做渠道级预处理（如规范化 metadata.user_id）
 		c.Set("requestBodyBytes", bodyBytes)
 
 		// 解析请求

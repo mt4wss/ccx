@@ -324,28 +324,6 @@
           </div>
 
           <div class="action-bar-right">
-            <!-- CCH 计费头移除切换按钮（仅 Claude Messages 渠道相关） -->
-            <v-tooltip v-if="channelStore.activeTab === 'messages'" location="bottom" content-class="ccx-tooltip">
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  variant="tonal"
-                  size="large"
-                  :loading="systemStore.stripBillingHeaderLoading"
-                  :disabled="systemStore.stripBillingHeaderLoadError"
-                  :color="systemStore.stripBillingHeaderLoadError ? 'error' : (preferencesStore.stripBillingHeader ? 'info' : 'default')"
-                  class="action-btn"
-                  @click="toggleStripBillingHeader"
-                >
-                  <v-icon start size="20">
-                    {{ systemStore.stripBillingHeaderLoadError ? 'mdi-alert-circle-outline' : (preferencesStore.stripBillingHeader ? 'mdi-tag-off' : 'mdi-tag') }}
-                  </v-icon>
-                  CCH
-                </v-btn>
-              </template>
-              <span>{{ systemStore.stripBillingHeaderLoadError ? t('tooltip.loadFailedRefresh') : (preferencesStore.stripBillingHeader ? t('tooltip.billingEnabled') : t('tooltip.billingDisabled')) }}</span>
-            </v-tooltip>
-
             <!-- Fuzzy 模式切换按钮 -->
             <v-tooltip location="bottom" content-class="ccx-tooltip">
               <template #activator="{ props }">
@@ -1760,36 +1738,6 @@ const toggleFuzzyMode = async () => {
   }
 }
 
-// 移除计费头管理
-const loadStripBillingHeaderStatus = async () => {
-  systemStore.setStripBillingHeaderLoadError(false)
-  try {
-    const { stripBillingHeader: enabled } = await api.getStripBillingHeader()
-    preferencesStore.setStripBillingHeader(enabled)
-  } catch (e) {
-    console.error('Failed to load strip billing header status:', e)
-    systemStore.setStripBillingHeaderLoadError(true)
-    showToast(t('toast.loadBillingFailed'), 'warning')
-  }
-}
-
-const toggleStripBillingHeader = async () => {
-  if (systemStore.stripBillingHeaderLoadError) {
-    showToast(t('toast.billingUnknown'), 'warning')
-    return
-  }
-  systemStore.setStripBillingHeaderLoading(true)
-  try {
-    await api.setStripBillingHeader(!preferencesStore.stripBillingHeader)
-    preferencesStore.toggleStripBillingHeader()
-    showToast(t('toast.billingToggled', { state: preferencesStore.stripBillingHeader ? t('common.enabled') : t('common.disabled') }), 'success')
-  } catch (e) {
-    showToast(t('toast.billingToggleFailed', { message: e instanceof Error ? e.message : t('system.unknown') }), 'error')
-  } finally {
-    systemStore.setStripBillingHeaderLoading(false)
-  }
-}
-
 // 历史图片轮次限制
 const historicalImageDialogOpen = ref(false)
 const historicalImageForm = ref({ limit: 0 })
@@ -2265,8 +2213,6 @@ onMounted(async () => {
     await refreshChannels()
     // 加载 Fuzzy 模式状态
     await loadFuzzyModeStatus()
-    // 加载移除计费头状态
-    await loadStripBillingHeaderStatus()
     // 加载历史图片轮次限制状态
     await loadHistoricalImageTurnLimit()
     // 启动自动刷新

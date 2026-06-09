@@ -78,6 +78,7 @@ export interface Channel {
   routePrefix?: string
   autoBlacklistBalance?: boolean
   normalizeMetadataUserId?: boolean
+  stripBillingHeader?: boolean
   stripEmptyTextBlocks?: boolean
   normalizeSystemRoleToTopLevel?: boolean
   codexNativeToolPassthrough?: boolean

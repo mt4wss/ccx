@@ -244,6 +244,10 @@ func (cm *ConfigManager) UpdateImagesUpstream(index int, updates UpstreamUpdate)
 		v := *updates.NormalizeMetadataUserID
 		upstream.NormalizeMetadataUserID = &v
 	}
+	if updates.StripBillingHeader != nil {
+		v := *updates.StripBillingHeader
+		upstream.StripBillingHeader = &v
+	}
 	if updates.CodexNativeToolPassthrough != nil {
 		upstream.CodexNativeToolPassthrough = *updates.CodexNativeToolPassthrough
 	}

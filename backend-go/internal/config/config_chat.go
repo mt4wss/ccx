@@ -218,6 +218,10 @@ func (cm *ConfigManager) UpdateChatUpstream(index int, updates UpstreamUpdate) (
 		v := *updates.NormalizeMetadataUserID
 		upstream.NormalizeMetadataUserID = &v
 	}
+	if updates.StripBillingHeader != nil {
+		v := *updates.StripBillingHeader
+		upstream.StripBillingHeader = &v
+	}
 	if updates.PassbackReasoningContent != nil {
 		upstream.PassbackReasoningContent = *updates.PassbackReasoningContent
 	}

@@ -155,6 +155,7 @@ const form = reactive({
   stripEmptyTextBlocks: false,
   normalizeSystemRoleToTopLevel: false,
   normalizeMetadataUserId: true,
+  stripBillingHeader: false,
   normalizeNonstandardChatRoles: false,
   autoBlacklistBalance: true,
   codexNativeToolPassthrough: false,
@@ -210,6 +211,7 @@ function resetForm() {
   form.stripEmptyTextBlocks = false
   form.normalizeSystemRoleToTopLevel = false
   form.normalizeMetadataUserId = true
+  form.stripBillingHeader = false
   form.normalizeNonstandardChatRoles = false
   form.autoBlacklistBalance = true
   form.codexNativeToolPassthrough = false
@@ -281,6 +283,7 @@ function populateFromChannel(ch: Channel) {
   form.stripEmptyTextBlocks = ch.stripEmptyTextBlocks ?? false
   form.normalizeSystemRoleToTopLevel = ch.normalizeSystemRoleToTopLevel ?? false
   form.normalizeMetadataUserId = ch.normalizeMetadataUserId ?? true
+  form.stripBillingHeader = ch.stripBillingHeader ?? false
   form.normalizeNonstandardChatRoles = ch.normalizeNonstandardChatRoles ?? false
   form.autoBlacklistBalance = ch.autoBlacklistBalance ?? true
   form.codexNativeToolPassthrough = ch.codexNativeToolPassthrough ?? false
@@ -409,6 +412,7 @@ function buildSubmitPayload() {
         supportedModels: parseLines(form.supportedModelsText),
         autoBlacklistBalance: form.autoBlacklistBalance,
         normalizeMetadataUserId: form.normalizeMetadataUserId,
+        stripBillingHeader: form.stripBillingHeader,
         stripEmptyTextBlocks: form.stripEmptyTextBlocks,
         normalizeSystemRoleToTopLevel: form.normalizeSystemRoleToTopLevel,
         codexNativeToolPassthrough: form.codexNativeToolPassthrough,
@@ -1108,6 +1112,7 @@ function buildCurrentPayload() {
     supportedModels: parseLines(form.supportedModelsText),
     autoBlacklistBalance: form.autoBlacklistBalance,
     normalizeMetadataUserId: form.normalizeMetadataUserId,
+    stripBillingHeader: form.stripBillingHeader,
     stripEmptyTextBlocks: form.stripEmptyTextBlocks,
     normalizeSystemRoleToTopLevel: form.normalizeSystemRoleToTopLevel,
     codexNativeToolPassthrough: form.codexNativeToolPassthrough,
@@ -1614,6 +1619,13 @@ function buildCurrentPayload() {
                           <div class="min-w-0 space-y-0.5">
                             <Label class="text-xs">{{ tf('console.form.normalizeUserId', '规范化用户 ID') }}</Label>
                             <p class="text-[10px] leading-4 text-muted-foreground">{{ tf('console.form.normalizeUserIdHint', '自动将 JSON 对象格式的 user_id 转换为扁平字符串，确保上游兼容性。') }}</p>
+                          </div>
+                        </div>
+                        <div v-if="channelType === 'messages'" class="flex flex-row-reverse items-center justify-between gap-3">
+                          <Switch v-model="form.stripBillingHeader" class="shrink-0" />
+                          <div class="min-w-0 space-y-0.5">
+                            <Label class="text-xs">{{ tf('console.form.stripBillingHeader', '移除 CCH 计费参数') }}</Label>
+                            <p class="text-[10px] leading-4 text-muted-foreground">{{ tf('console.form.stripBillingHeaderHint', '转发前从 system 文本块中移除 cch= 计费参数，仅对当前 Messages 渠道生效。') }}</p>
                           </div>
                         </div>
                         <div v-if="channelType === 'chat' || (channelType === 'responses' && form.serviceType === 'openai')" class="flex flex-row-reverse items-center justify-between gap-3">

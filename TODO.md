@@ -101,8 +101,21 @@ Web 端与后端已支持渠道级「去除 image_generation 工具」开关（R
 - `desktop/internal/channelpreset/preset.go`: MiMo 预设默认 `rateLimitRpm=80`
 - `docs/guide/environment.md`: 渠道级限速字段说明
 
-## [] 用户体验提升
+## [x] 用户体验提升
 
 如果有渠道频繁缓存写很高，说明大概率设置有问题，应该在渠道列表给他一个badge提醒用户注意这个问题
 还有runapi现在的messages协议很偏向原生协议，那么应该从桌面端渠道中心添加的时候关闭userid兼容。还有就是cch头关闭的问题，之前有这个问题的渠道比较多，所以放在了全局开关，但是现在有问题的很少了，那么应该放在messages协议渠道级开关，默认是关闭的。
+
+**关键变更：**
+- `frontend/src/components/ChannelOrchestration.vue`: 基于 15 分钟窗口新增缓存写偏高 warning chip（比例+门槛规则）
+- `desktop/internal/channelpreset/preset.go`: RunAPI messages preset 显式下发 `normalizeMetadataUserId=false`
+- `backend-go/internal/config/` + `backend-go/internal/handlers/common/upstream_failover.go`: 新增 messages 渠道级 `stripBillingHeader` 配置，并把 CCH 移除逻辑从全局入口下沉到按渠道转发阶段
+- `frontend/src/components/AddChannelModal.vue` / `desktop/frontend/src/components/console/ChannelEditDialog.vue`: Web/桌面表单新增 messages 渠道级 CCH 开关，Web 顶栏移除全局 CCH 按钮
+
+**验证：**
+- `cd desktop && go test ./internal/channelpreset/...` ✅
+- `cd backend-go && go test ./internal/config ./internal/handlers/common ./internal/handlers/messages ./internal/handlers` ✅
+- `cd backend-go && make copy-frontend && make test` ✅
+- `cd frontend && bun run type-check && bun run test && bun run build` ✅
+- `cd desktop/frontend && bun run type-check && bun run test && bun run build` ✅（构建通过，Rolldown 对 `@vueuse/core` 的 `/* #__PURE__ */` 给出上游依赖 warning，不影响产物生成）
 

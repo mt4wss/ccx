@@ -112,6 +112,7 @@ type ChannelPayload struct {
 	StripCodexClientTools         bool              `json:"stripCodexClientTools,omitempty"`
 	StripImageGenerationTool      bool              `json:"stripImageGenerationTool,omitempty"`
 	NormalizeNonstandardChatRoles bool              `json:"normalizeNonstandardChatRoles,omitempty"`
+	NormalizeMetadataUserId       *bool             `json:"normalizeMetadataUserId,omitempty"`
 	RateLimitRPM                  int               `json:"rateLimitRpm,omitempty"`
 	RateLimitBurst                int               `json:"rateLimitBurst,omitempty"`
 	RateLimitMaxConcurrent        int               `json:"rateLimitMaxConcurrent,omitempty"`
@@ -840,6 +841,9 @@ func applyTargetDefaults(payload *ChannelPayload, provider string, target string
 		payload.ServiceType = "claude"
 		payload.StripEmptyTextBlocks = true
 		payload.StripThoughtSignature = true
+		if provider == ProviderRunAPI {
+			payload.NormalizeMetadataUserId = boolRef(false)
+		}
 	case TargetChat:
 		payload.ServiceType = "openai"
 		payload.NormalizeNonstandardChatRoles = true

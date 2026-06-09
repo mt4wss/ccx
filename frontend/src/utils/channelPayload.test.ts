@@ -300,6 +300,46 @@ describe('buildChannelPayload', () => {
     expect(result.normalizeMetadataUserId).toBe(false)
   })
 
+  it('应携带 stripBillingHeader 开关', () => {
+    const result = buildChannelPayload({
+      name: 'claude-cch-strip',
+      serviceType: 'claude',
+      baseUrl: 'https://api.example.com/v1',
+      baseUrls: [],
+      website: '',
+      insecureSkipVerify: false,
+      lowQuality: false,
+      injectDummyThoughtSignature: false,
+      stripThoughtSignature: false,
+      passbackReasoningContent: false,
+      passbackThinkingBlocks: false,
+      description: '',
+      apiKeys: ['sk-1'],
+      modelMapping: {},
+      reasoningMapping: {},
+      reasoningParamStyle: 'reasoning',
+      textVerbosity: '',
+      fastMode: false,
+      customHeaders: {},
+      proxyUrl: '',
+      routePrefix: '',
+      supportedModels: [],
+      autoBlacklistBalance: true,
+      normalizeMetadataUserId: true,
+      stripBillingHeader: true,
+      stripEmptyTextBlocks: false,
+      normalizeSystemRoleToTopLevel: false,
+      codexNativeToolPassthrough: false,
+      codexToolCompat: true,
+      stripImageGenerationTool: false,
+      noVision: false,
+      noVisionModels: [],
+      visionFallbackModel: ''
+    })
+
+    expect(result.stripBillingHeader).toBe(true)
+  })
+
   it('应携带 stripEmptyTextBlocks 开关', () => {
     const result = buildChannelPayload({
       name: 'claude-strict-upstream',

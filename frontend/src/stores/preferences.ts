@@ -22,9 +22,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   // Fuzzy 模式开关
   const fuzzyModeEnabled = ref(true)
 
-  // 移除计费头开关
-  const stripBillingHeader = ref(true)
-
   // 历史图片轮次限制（0=不限制）
   const historicalImageTurnLimit = ref(0)
 
@@ -71,13 +68,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   /**
-   * 设置移除计费头
-   */
-  function setStripBillingHeader(enabled: boolean) {
-    stripBillingHeader.value = enabled
-  }
-
-  /**
    * 设置 UI 语言
    */
   function setUILanguage(language: SupportedLocale) {
@@ -91,13 +81,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   function initializeUILanguage(_runtimeLanguage?: string) {
     // uiLanguage 此时已是正确值（持久化值 > 运行时默认值），无需额外处理
-  }
-
-  /**
-   * 切换移除计费头
-   */
-  function toggleStripBillingHeader() {
-    stripBillingHeader.value = !stripBillingHeader.value
   }
 
   /**
@@ -125,7 +108,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     // 状态
     darkModePreference,
     fuzzyModeEnabled,
-    stripBillingHeader,
     historicalImageTurnLimit,
     uiLanguage,
     showGlobalStats,
@@ -136,8 +118,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     toggleDarkMode,
     setFuzzyMode,
     toggleFuzzyMode,
-    setStripBillingHeader,
-    toggleStripBillingHeader,
     setHistoricalImageTurnLimit,
     setUILanguage,
     initializeUILanguage,

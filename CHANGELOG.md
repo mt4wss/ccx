@@ -3,6 +3,7 @@
 ### 新增
 
 - **历史图片轮次限制与占位符替换** - 新增全局/渠道级历史图片轮次限制配置（`historicalImageTurnLimit`），超过指定轮次的历史对话图片自动替换为 `[Image]` 占位符，避免不必要的 vision 回退模型切换。覆盖 Claude Messages、OpenAI Chat、Responses API、Gemini 四种协议格式。新增环境变量 `HISTORICAL_IMAGE_TURN_LIMIT`、Settings API（`/api/settings/historical-image-turn-limit`）、Web 管理界面全局设置入口与渠道级配置 UI
+- **渠道体验增强与 Messages 渠道级 CCH 开关** - Web/桌面渠道列表新增 15 分钟窗口“缓存写偏高”提醒 badge；桌面端 RunAPI messages 预设默认关闭 `normalizeMetadataUserId`；`stripBillingHeader` 从全局设置下沉为 messages 渠道级开关，默认关闭，并同步补齐 Web/桌面渠道编辑表单与老配置迁移逻辑
 
 ## [v2.8.25] - 2026-06-07
 

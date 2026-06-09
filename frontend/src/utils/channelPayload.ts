@@ -35,6 +35,7 @@ export interface ChannelFormLike {
   supportedModels: string[]
   autoBlacklistBalance: boolean
   normalizeMetadataUserId: boolean
+  stripBillingHeader?: boolean
   stripEmptyTextBlocks: boolean
   normalizeSystemRoleToTopLevel: boolean
   codexNativeToolPassthrough: boolean
@@ -85,6 +86,7 @@ export function buildChannelPayload(form: ChannelFormLike): Omit<Channel, 'index
     supportedModels: form.supportedModels,
     autoBlacklistBalance: form.autoBlacklistBalance,
     normalizeMetadataUserId: form.normalizeMetadataUserId,
+    stripBillingHeader: !!form.stripBillingHeader,
     stripEmptyTextBlocks: form.stripEmptyTextBlocks,
     normalizeSystemRoleToTopLevel: form.normalizeSystemRoleToTopLevel,
     codexNativeToolPassthrough: form.codexNativeToolPassthrough,

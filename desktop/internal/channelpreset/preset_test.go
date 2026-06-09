@@ -156,6 +156,7 @@ func TestBuildPayload(t *testing.T) {
 			wantBaseURL:    "https://runapi.co/v1",
 			wantService:    "claude",
 			wantNoModelMap: true,
+			wantNormalize:  false,
 		},
 		{
 			name:           "runapi chat",

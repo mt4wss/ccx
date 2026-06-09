@@ -882,6 +882,19 @@
               </div>
             </v-col>
 
+            <v-col v-if="props.channelType === 'messages'" cols="12">
+              <div class="d-flex align-center justify-space-between">
+                <div class="d-flex align-center ga-2">
+                  <v-icon color="warning">mdi-tag-off</v-icon>
+                  <div>
+                    <div class="section-title section-title--soft">{{ t('addChannel.stripBillingHeaderLabel') }}</div>
+                    <div class="text-caption text-medium-emphasis">{{ t('addChannel.stripBillingHeaderHint') }}</div>
+                  </div>
+                </div>
+                <v-switch v-model="form.stripBillingHeader" inset color="warning" hide-details />
+              </div>
+            </v-col>
+
             <v-col v-if="supportsChatRoleNormalization" cols="12">
               <div class="d-flex align-center justify-space-between">
                 <div class="d-flex align-center ga-2">
@@ -2194,6 +2207,7 @@ const form = reactive({
   supportedModels: [] as string[],
   autoBlacklistBalance: true,
   normalizeMetadataUserId: true,
+  stripBillingHeader: false,
   codexNativeToolPassthrough: false,
   codexToolCompat: false,
   normalizeNonstandardChatRoles: false,
@@ -2613,6 +2627,7 @@ const hasEditableDraftChanges = computed(() => {
     supportedModels: normalizeStringArray(props.channel.supportedModels || []),
     autoBlacklistBalance: props.channel.autoBlacklistBalance ?? true,
     normalizeMetadataUserId: props.channel.normalizeMetadataUserId ?? true,
+    stripBillingHeader: props.channel.stripBillingHeader ?? false,
     codexNativeToolPassthrough: !!props.channel.codexNativeToolPassthrough,
     codexToolCompat: props.channel.codexToolCompat ?? props.channel.stripCodexClientTools ?? false,
     normalizeNonstandardChatRoles: !!props.channel.normalizeNonstandardChatRoles,
@@ -2705,6 +2720,7 @@ const resetForm = () => {
   supportedModelsError.value = ''
   form.autoBlacklistBalance = true
   form.normalizeMetadataUserId = true
+  form.stripBillingHeader = false
   form.codexNativeToolPassthrough = false
   form.codexToolCompat = false
   form.normalizeNonstandardChatRoles = false
@@ -2791,6 +2807,7 @@ const loadChannelData = (channel: Channel) => {
   supportedModelsError.value = hasInvalidPatterns ? t('addChannel.supportedModelsInvalidPattern') : ''
   form.autoBlacklistBalance = channel.autoBlacklistBalance ?? true
   form.normalizeMetadataUserId = channel.normalizeMetadataUserId ?? true
+  form.stripBillingHeader = channel.stripBillingHeader ?? false
   form.codexNativeToolPassthrough = !!channel.codexNativeToolPassthrough
   form.codexToolCompat = channel.codexToolCompat ?? channel.stripCodexClientTools ?? false
   form.normalizeNonstandardChatRoles = !!channel.normalizeNonstandardChatRoles
@@ -3187,7 +3204,7 @@ const PAYLOAD_KEYS = [
   'apiKeys', 'modelMapping', 'reasoningMapping', 'reasoningParamStyle', 'textVerbosity',
   'fastMode', 'customHeaders', 'proxyUrl', 'requestTimeoutMs', 'streamFirstContentTimeoutMs', 'streamInactivityTimeoutMs', 'streamToolCallIdleTimeoutMs', 'routePrefix', 'supportedModels',
   'rateLimitRpm', 'rateLimitBurst', 'rateLimitMaxConcurrent', 'rateLimitAutoFromHeaders',
-  'autoBlacklistBalance', 'normalizeMetadataUserId', 'passbackThinkingBlocks', 'stripEmptyTextBlocks', 'normalizeSystemRoleToTopLevel', 'codexNativeToolPassthrough',
+  'autoBlacklistBalance', 'normalizeMetadataUserId', 'stripBillingHeader', 'passbackThinkingBlocks', 'stripEmptyTextBlocks', 'normalizeSystemRoleToTopLevel', 'codexNativeToolPassthrough',
   'codexToolCompat', 'normalizeNonstandardChatRoles', 'stripCodexClientTools', 'stripImageGenerationTool'
 ] as const
 

@@ -428,3 +428,55 @@ func TestStripImageGenerationToolDefaultsAndUpdate(t *testing.T) {
 		t.Fatalf("after disable IsStripImageGenerationToolEnabled() = %v, want false", got)
 	}
 }
+
+func TestStripBillingHeaderDefaultsUpdateAndMigration(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	initialConfig := `{
+		"stripBillingHeader": true,
+		"upstream": [{
+			"name": "msg-ch",
+			"baseUrl": "https://example.com",
+			"apiKeys": ["sk-active"],
+			"serviceType": "claude"
+		}]
+	}`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cm, err := NewConfigManager(configPath, "")
+	if err != nil {
+		t.Fatalf("NewConfigManager() error = %v", err)
+	}
+	defer cm.Close()
+
+	cfg := cm.GetConfig()
+	if cfg.Upstream[0].StripBillingHeader == nil || *cfg.Upstream[0].StripBillingHeader != true {
+		t.Fatalf("StripBillingHeader migration = %v, want true", cfg.Upstream[0].StripBillingHeader)
+	}
+	if got := cfg.Upstream[0].IsStripBillingHeaderEnabled(); got != true {
+		t.Fatalf("default IsStripBillingHeaderEnabled() = %v, want true", got)
+	}
+
+	disabled := false
+	if _, err := cm.UpdateUpstream(0, UpstreamUpdate{StripBillingHeader: &disabled}); err != nil {
+		t.Fatalf("UpdateUpstream() error = %v", err)
+	}
+
+	cfg = cm.GetConfig()
+	if cfg.Upstream[0].StripBillingHeader == nil || *cfg.Upstream[0].StripBillingHeader != false {
+		t.Fatalf("StripBillingHeader = %v, want false", cfg.Upstream[0].StripBillingHeader)
+	}
+	if got := cfg.Upstream[0].IsStripBillingHeaderEnabled(); got != false {
+		t.Fatalf("IsStripBillingHeaderEnabled() = %v, want false", got)
+	}
+
+	cloned := cfg.Upstream[0].Clone()
+	if cloned.StripBillingHeader == nil || *cloned.StripBillingHeader != false {
+		t.Fatalf("cloned StripBillingHeader = %v, want false", cloned.StripBillingHeader)
+	}
+	if cloned.StripBillingHeader == cfg.Upstream[0].StripBillingHeader {
+		t.Fatal("StripBillingHeader pointer should be deep-copied")
+	}
+}

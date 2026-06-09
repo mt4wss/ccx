@@ -710,10 +710,6 @@ func main() {
 		apiGroup.GET("/settings/fuzzy-mode", handlers.GetFuzzyMode(cfgManager))
 		apiGroup.PUT("/settings/fuzzy-mode", handlers.SetFuzzyMode(cfgManager))
 
-		// 移除计费头设置
-		apiGroup.GET("/settings/strip-billing-header", handlers.GetStripBillingHeader(cfgManager))
-		apiGroup.PUT("/settings/strip-billing-header", handlers.SetStripBillingHeader(cfgManager))
-
 		// 历史图片轮次限制设置
 		apiGroup.GET("/settings/historical-image-turn-limit", handlers.GetHistoricalImageTurnLimit(cfgManager))
 		apiGroup.PUT("/settings/historical-image-turn-limit", handlers.SetHistoricalImageTurnLimit(cfgManager))

@@ -55,6 +55,16 @@ func shouldNormalizeMetadataUserID(kind scheduler.ChannelKind, upstream *config.
 	return upstream.IsNormalizeMetadataUserIDEnabled()
 }
 
+func shouldStripBillingHeader(kind scheduler.ChannelKind, upstream *config.UpstreamConfig) bool {
+	if upstream == nil {
+		return false
+	}
+	if kind != scheduler.ChannelKindMessages {
+		return false
+	}
+	return upstream.IsStripBillingHeaderEnabled()
+}
+
 // TryUpstreamWithAllKeys 尝试一个 upstream 的所有 BaseURL + Key（纯 failover）
 // 返回:
 //   - handled: 是否已向客户端写回响应（成功或非 failover 错误）
@@ -169,6 +179,9 @@ func TryUpstreamWithAllKeys(
 				activeRateLimitRelease = nil
 			}
 			attemptBody := requestBody
+			if shouldStripBillingHeader(kind, upstream) {
+				attemptBody, _ = RemoveBillingHeadersWithContext(c, attemptBody, envCfg.EnableRequestLogs, apiType)
+			}
 			if shouldNormalizeMetadataUserID(kind, upstream) {
 				attemptBody = NormalizeMetadataUserID(attemptBody)
 			}

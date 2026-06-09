@@ -437,6 +437,8 @@ export type MessageKey =
   | 'console.channelStatus.active'
   | 'console.channelStatus.suspended'
   | 'console.channelStatus.disabled'
+  | 'console.channel.cacheWriteHigh'
+  | 'console.channel.cacheWriteHighHint'
   | 'console.circuit.open'
   | 'console.circuit.halfOpen'
   | 'console.keys.active'
@@ -503,6 +505,7 @@ export type MessageKey =
   | 'console.form.stripEmptyBlocks'
   | 'console.form.normalizeSystem'
   | 'console.form.normalizeUserId'
+  | 'console.form.stripBillingHeader'
   | 'console.form.normalizeChatRoles'
   | 'console.form.autoBlacklist'
   | 'console.form.codexNativeTools'
@@ -543,6 +546,7 @@ export type MessageKey =
   | 'console.form.stripEmptyBlocksHint'
   | 'console.form.normalizeSystemHint'
   | 'console.form.normalizeUserIdHint'
+  | 'console.form.stripBillingHeaderHint'
   | 'console.form.normalizeChatRolesHint'
   | 'console.form.lowQualityHint'
   | 'console.form.autoBlacklistHint'
@@ -1084,6 +1088,8 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.channelStatus.active': 'Active',
     'console.channelStatus.suspended': 'Suspended',
     'console.channelStatus.disabled': 'Standby',
+    'console.channel.cacheWriteHigh': 'Cache write high',
+    'console.channel.cacheWriteHighHint': 'The cache write ratio is high in the last 15 minutes, which may indicate suboptimal cache-hit configuration.',
     'console.circuit.open': 'Circuit Open',
     'console.circuit.halfOpen': 'Half-Open',
     'console.keys.active': 'active keys',
@@ -1155,6 +1161,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.stripEmptyBlocks': 'Strip empty text blocks',
     'console.form.normalizeSystem': 'Normalize system role',
     'console.form.normalizeUserId': 'Normalize user ID',
+    'console.form.stripBillingHeader': 'Strip CCH billing parameter',
     'console.form.normalizeChatRoles': 'Normalize chat roles',
     'console.form.autoBlacklist': 'Auto-blacklist balance-anomaly keys',
     'console.form.codexNativeTools': 'Codex native tool passthrough',
@@ -1195,6 +1202,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.stripEmptyBlocksHint': 'Strip bare empty text content blocks before forwarding, compatible with Claude-protocol upstreams that strictly reject Claude Code tool_use placeholder blocks.',
     'console.form.normalizeSystemHint': 'For new clients such as Opus 4.8 that send system as a message role: pull it back into the top-level system field before forwarding, compatible with older Claude upstreams that only support user/assistant roles.',
     'console.form.normalizeUserIdHint': 'Automatically convert JSON-object user_id into a flat string to ensure upstream compatibility.',
+    'console.form.stripBillingHeaderHint': 'Remove cch= billing parameters from system text blocks before forwarding, only for the current Messages channel.',
     'console.form.normalizeChatRolesHint': 'Convert non-standard roles such as developer into user before forwarding upstream. Domestic models usually do not support non-standard roles, so enabling this is recommended.',
     'console.form.lowQualityHint': 'When enabled, force local token estimation; use the local value when the deviation exceeds 5%.',
     'console.form.autoBlacklistHint': 'When the upstream returns insufficient balance, automatically move that key into the blacklist.',
@@ -1728,6 +1736,8 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.channelStatus.active': '活跃',
     'console.channelStatus.suspended': '暂停',
     'console.channelStatus.disabled': '备用',
+    'console.channel.cacheWriteHigh': '缓存写偏高',
+    'console.channel.cacheWriteHighHint': '过去 15 分钟缓存写入占比偏高，可能存在缓存命中配置不合理的问题。',
     'console.circuit.open': '熔断开启',
     'console.circuit.halfOpen': '半开',
     'console.keys.active': '活跃密钥',
@@ -1799,6 +1809,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.stripEmptyBlocks': '移除空文本块',
     'console.form.normalizeSystem': '规范化系统角色',
     'console.form.normalizeUserId': '规范化用户 ID',
+    'console.form.stripBillingHeader': '移除 CCH 计费参数',
     'console.form.normalizeChatRoles': '规范化 Chat 角色',
     'console.form.autoBlacklist': '自动黑名单余额异常 Key',
     'console.form.codexNativeTools': 'Codex 原生工具透传',
@@ -1839,6 +1850,7 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.stripEmptyBlocksHint': '转发前移除裸空 text content block，兼容严格拒绝 Claude Code tool_use 占位块的 Claude 协议上游',
     'console.form.normalizeSystemHint': '针对 Opus 4.8 等新客户端将 system 作为消息 role 发送的情况：转发前抽回顶层 system 字段，兼容仅支持 user/assistant role 的旧 Claude 上游',
     'console.form.normalizeUserIdHint': '自动将 JSON 对象格式的 user_id 转换为扁平字符串，确保上游兼容性。',
+    'console.form.stripBillingHeaderHint': '转发前从 system 文本块中移除 cch= 计费参数，仅对当前 Messages 渠道生效。',
     'console.form.normalizeChatRolesHint': '将 developer 等非标准 role 统一转为 user 后转发给上游。国内模型通常不支持非标准 role，建议开启。',
     'console.form.lowQualityHint': '启用后强制本地估算 token 数量，偏差超过 5% 时使用本地值',
     'console.form.autoBlacklistHint': '当上游返回余额不足时，自动将该 Key 移入拉黑列表。',

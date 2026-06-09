@@ -40,7 +40,11 @@ func NewConfigManager(configFile string, backupDir string) (*ConfigManager, erro
 	}
 
 	// 启动定期清理
-	go cm.cleanupExpiredFailures()
+	cm.backgroundWG.Add(1)
+	go func() {
+		defer cm.backgroundWG.Done()
+		cm.cleanupExpiredFailures()
+	}()
 
 	return cm, nil
 }
@@ -117,7 +121,7 @@ func (cm *ConfigManager) createDefaultConfig() error {
 		CurrentResponsesUpstream: 0,
 		GeminiUpstream:           []UpstreamConfig{},
 		FuzzyModeEnabled:         true, // 默认启用 Fuzzy 模式
-		StripBillingHeader:       true, // 默认启用移除计费头
+		// StripBillingHeader 旧全局字段默认关闭；新语义已下沉到渠道级开关
 		// HistoricalImageTurnLimit 默认 0（不限制），int 零值语义正确，无需显式赋值
 	}
 
@@ -146,14 +150,58 @@ func (cm *ConfigManager) applyConfigDefaults(rawJSON []byte) bool {
 			log.Printf("[Config-Migration] FuzzyModeEnabled 字段不存在，设为默认值 true")
 		}
 		if _, exists := rawMap["stripBillingHeader"]; !exists {
-			// 字段不存在，设为默认值 true
-			cm.config.StripBillingHeader = true
-			needSave = true
-			log.Printf("[Config-Migration] StripBillingHeader 字段不存在，设为默认值 true")
+			// 字段不存在，保留零值 false；新语义默认关闭，仅旧配置显式存在时才迁移
+		}
+
+		// 将旧全局 stripBillingHeader 迁移到已有 messages 渠道级字段
+		// 仅当旧全局字段显式存在、且渠道级字段未显式设置时才迁移，避免覆盖用户显式配置
+		if _, exists := rawMap["stripBillingHeader"]; exists {
+			migrated := cm.migrateStripBillingHeaderToChannels(rawMap)
+			if cm.config.StripBillingHeader {
+				cm.config.StripBillingHeader = false
+				needSave = true
+				log.Printf("[Config-Migration] 旧全局 stripBillingHeader 开关已清理，后续仅使用渠道级配置")
+			}
+			needSave = migrated || needSave
 		}
 	}
 
 	return needSave
+}
+
+// migrateStripBillingHeaderToChannels 将旧全局 StripBillingHeader 迁移到 messages 渠道级字段。
+// 仅当渠道级字段未显式设置时才复制，避免覆盖用户显式配置。
+func (cm *ConfigManager) migrateStripBillingHeaderToChannels(rawMap map[string]json.RawMessage) bool {
+	updated := false
+	apply := func(raw json.RawMessage, channels *[]UpstreamConfig, channelName string) {
+		var rawChannels []map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &rawChannels); err != nil {
+			return
+		}
+		for i := range *channels {
+			if i >= len(rawChannels) {
+				continue
+			}
+			if (*channels)[i].StripBillingHeader != nil {
+				// 已显式设置，不覆盖
+				continue
+			}
+			rawChannel := rawChannels[i]
+			if _, exists := rawChannel["stripBillingHeader"]; exists {
+				// JSON 中已存在渠道级字段，不迁移
+				continue
+			}
+			v := cm.config.StripBillingHeader
+			(*channels)[i].StripBillingHeader = &v
+			updated = true
+			log.Printf("[Config-Migration] %s 渠道 [%d] %s StripBillingHeader 已从全局迁移为 %v", channelName, i, (*channels)[i].Name, v)
+		}
+	}
+	if raw, ok := rawMap["upstream"]; ok {
+		apply(raw, &cm.config.Upstream, "Messages")
+	}
+	// 仅迁移 messages 渠道，其他渠道类型不涉及该功能
+	return updated
 }
 
 func (cm *ConfigManager) applyCodexToolCompatMigration(rawJSON []byte) bool {
@@ -476,7 +524,9 @@ func (cm *ConfigManager) startWatcher() error {
 
 	cm.watcher = watcher
 
+	cm.backgroundWG.Add(1)
 	go func() {
+		defer cm.backgroundWG.Done()
 		for {
 			select {
 			case <-cm.stopChan:
@@ -518,6 +568,8 @@ func (cm *ConfigManager) Close() error {
 		if cm.watcher != nil {
 			closeErr = cm.watcher.Close()
 		}
+
+		cm.backgroundWG.Wait()
 	})
 	return closeErr
 }

@@ -421,21 +421,6 @@ export class ApiService {
     })
   }
 
-  // ============== 移除计费头 API ==============
-
-  // 获取移除计费头状态
-  async getStripBillingHeader(): Promise<{ stripBillingHeader: boolean }> {
-    return this.request('/settings/strip-billing-header')
-  }
-
-  // 设置移除计费头状态
-  async setStripBillingHeader(enabled: boolean): Promise<void> {
-    await this.request('/settings/strip-billing-header', {
-      method: 'PUT',
-      body: JSON.stringify({ enabled })
-    })
-  }
-
   // ============== 熔断器配置 API ==============
 
   // 获取历史图片轮次限制

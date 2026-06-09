@@ -215,6 +215,15 @@
                     >
                       {{ t('orchestration.cache') }} {{ get15mStats(element.index)?.cacheHitRate?.toFixed(0) }}%
                     </v-chip>
+                    <v-chip
+                      v-if="shouldShowCacheWriteWarning(get15mStats(element.index))"
+                      size="x-small"
+                      color="warning"
+                      variant="tonal"
+                      class="ml-1 metrics-chip cache-chip"
+                    >
+                      {{ t('orchestration.cacheWriteHigh') }}
+                    </v-chip>
                   </template>
                   <span v-else class="text-caption text-medium-emphasis">--</span>
                   <v-tooltip
@@ -888,6 +897,20 @@ const shouldShowCacheHitRate = (stats?: TimeWindowStats): boolean => {
   const inputTokens = stats.inputTokens ?? 0
   const cacheReadTokens = stats.cacheReadTokens ?? 0
   return (inputTokens + cacheReadTokens) > 0
+}
+
+const CACHE_WRITE_WARNING_MIN_REQUESTS = 5
+const CACHE_WRITE_WARNING_MIN_TOKENS = 100000
+const CACHE_WRITE_WARNING_RATIO = 0.2
+
+const shouldShowCacheWriteWarning = (stats?: TimeWindowStats): boolean => {
+  if (!stats || (stats.requestCount ?? 0) < CACHE_WRITE_WARNING_MIN_REQUESTS) return false
+  const inputTokens = stats.inputTokens ?? 0
+  const cacheReadTokens = stats.cacheReadTokens ?? 0
+  const cacheCreationTokens = stats.cacheCreationTokens ?? 0
+  const denom = inputTokens + cacheReadTokens
+  if (denom <= 0 || cacheCreationTokens < CACHE_WRITE_WARNING_MIN_TOKENS) return false
+  return (cacheCreationTokens / denom) >= CACHE_WRITE_WARNING_RATIO
 }
 
 // Get latency color

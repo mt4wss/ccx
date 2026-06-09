@@ -159,6 +159,21 @@ const tpmDisplay = computed(() => {
   return tpm.toFixed(0)
 })
 
+const CACHE_WRITE_WARNING_MIN_REQUESTS = 5
+const CACHE_WRITE_WARNING_MIN_TOKENS = 100000
+const CACHE_WRITE_WARNING_RATIO = 0.2
+
+const cacheWriteWarning = computed(() => {
+  const stats = props.metrics?.timeWindows?.['15m']
+  if (!stats || (stats.requestCount ?? 0) < CACHE_WRITE_WARNING_MIN_REQUESTS) return false
+  const inputTokens = stats.inputTokens ?? 0
+  const cacheReadTokens = stats.cacheReadTokens ?? 0
+  const cacheCreationTokens = stats.cacheCreationTokens ?? 0
+  const denom = inputTokens + cacheReadTokens
+  if (denom <= 0 || cacheCreationTokens < CACHE_WRITE_WARNING_MIN_TOKENS) return false
+  return (cacheCreationTokens / denom) >= CACHE_WRITE_WARNING_RATIO
+})
+
 const websiteUrl = computed(() => {
   if (props.channel.website) return props.channel.website
   try {
@@ -239,6 +254,14 @@ async function copyChannelInfo() {
         >
           <AlertTriangle class="h-3 w-3" />
           {{ circuitDisplay.label }}
+        </span>
+        <span
+          v-if="cacheWriteWarning"
+          class="inline-flex shrink-0 items-center gap-1 border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300"
+          :title="tf('console.channel.cacheWriteHighHint', '过去 15 分钟缓存写入占比偏高，可能存在缓存命中配置不合理的问题。')"
+        >
+          <AlertTriangle class="h-3 w-3" />
+          {{ tf('console.channel.cacheWriteHigh', '缓存写偏高') }}
         </span>
       </div>
       <div class="truncate font-mono text-[11px] text-muted-foreground" :title="baseUrlText">

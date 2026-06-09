@@ -35,10 +35,6 @@ export const useSystemStore = defineStore('system', () => {
   const fuzzyModeLoading = ref(false)
   const fuzzyModeLoadError = ref(false)
 
-  // 移除计费头加载状态
-  const stripBillingHeaderLoading = ref(false)
-  const stripBillingHeaderLoadError = ref(false)
-
   // 历史图片轮次限制加载状态
   const historicalImageTurnLimitLoading = ref(false)
   const historicalImageTurnLimitLoadError = ref(false)
@@ -93,20 +89,6 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   /**
-   * 设置移除计费头加载状态
-   */
-  function setStripBillingHeaderLoading(loading: boolean) {
-    stripBillingHeaderLoading.value = loading
-  }
-
-  /**
-   * 设置移除计费头加载错误状态
-   */
-  function setStripBillingHeaderLoadError(error: boolean) {
-    stripBillingHeaderLoadError.value = error
-  }
-
-  /**
    * 设置历史图片轮次限制加载状态
    */
   function setHistoricalImageTurnLimitLoading(loading: boolean) {
@@ -141,8 +123,6 @@ export const useSystemStore = defineStore('system', () => {
     isCheckingVersion.value = false
     fuzzyModeLoading.value = false
     fuzzyModeLoadError.value = false
-    stripBillingHeaderLoading.value = false
-    stripBillingHeaderLoadError.value = false
     historicalImageTurnLimitLoading.value = false
     historicalImageTurnLimitLoadError.value = false
     updateDialogOpen.value = false
@@ -155,8 +135,6 @@ export const useSystemStore = defineStore('system', () => {
     isCheckingVersion,
     fuzzyModeLoading,
     fuzzyModeLoadError,
-    stripBillingHeaderLoading,
-    stripBillingHeaderLoadError,
     historicalImageTurnLimitLoading,
     historicalImageTurnLimitLoadError,
     updateDialogOpen,
@@ -170,8 +148,6 @@ export const useSystemStore = defineStore('system', () => {
     setCheckingVersion,
     setFuzzyModeLoading,
     setFuzzyModeLoadError,
-    setStripBillingHeaderLoading,
-    setStripBillingHeaderLoadError,
     setHistoricalImageTurnLimitLoading,
     setHistoricalImageTurnLimitLoadError,
     setUpdateDialogOpen,
