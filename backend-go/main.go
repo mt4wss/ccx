@@ -406,9 +406,10 @@ func main() {
 
 	// 初始化对话追踪器和覆盖管理器
 	conversationTracker := conversation.NewConversationTracker(1*time.Hour, 24*time.Hour, paths.ConversationStatePath)
-	overrideManager := conversation.NewOverrideManager(30 * time.Minute)
+	overrideTTL := time.Duration(envCfg.OverrideTTLMinutes) * time.Minute
+	overrideManager := conversation.NewOverrideManager(overrideTTL)
 	channelScheduler.SetConversationComponents(conversationTracker, overrideManager)
-	log.Printf("[Conversation-Init] 对话追踪器和覆盖管理器已初始化 (idle: 1h, expire: 2h, override TTL: 30m)")
+	log.Printf("[Conversation-Init] 对话追踪器和覆盖管理器已初始化 (idle: 1h, expire: 2h, override TTL: %dm)", envCfg.OverrideTTLMinutes)
 
 	scheduledRecoveryStop := make(chan struct{})
 	go func() {

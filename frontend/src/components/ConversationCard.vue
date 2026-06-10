@@ -57,7 +57,8 @@
       <v-alert v-if="expanded && hasOverride" type="warning" density="compact" variant="tonal" class="override-alert mb-2 mt-2">
         <div class="d-flex align-center">
           <span class="alert-bang">[!]</span>
-          <span class="text-caption">{{ t('cockpit.overrideActive', { time: remainingTime }) }}</span>
+          <span v-if="override?.isPerpetual" class="text-caption">{{ t('cockpit.overrideActivePerpetual') }}</span>
+          <span v-else class="text-caption">{{ t('cockpit.overrideActive', { time: remainingTime }) }}</span>
           <v-spacer />
           <v-btn size="x-small" variant="text" @click.stop="$emit('removeOverride', conversation.id)">{{ t('cockpit.restoreDefault') }}</v-btn>
         </div>
@@ -177,6 +178,7 @@ const duration = computed(() => {
 
 const remainingTime = computed(() => {
   if (!props.override) return ''
+  if (props.override.isPerpetual) return t('cockpit.durationNever')
   const expires = new Date(props.override.expiresAt).getTime()
   const remaining = Math.max(0, expires - props.nowMs)
   const mins = Math.floor(remaining / 60000)

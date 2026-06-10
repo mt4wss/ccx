@@ -482,6 +482,8 @@ func (s *ChannelScheduler) SelectChannel(
 						upstream := s.getUpstreamByIndex(entry.ChannelIndex, kind)
 						if upstream != nil && s.channelCircuitState(upstream, kind) != metrics.CircuitStateOpen {
 							log.Printf("[%s-Override] 手动覆盖选择渠道: [%d] %s (user: %s)", prefix, entry.ChannelIndex, entry.ChannelName, maskUserID(userID))
+							// Idle 续期：对话活跃时延长 override TTL
+							s.overrideManager.RefreshOverrideForUser(string(kind), userID)
 							return s.selectionResult(kind, upstream, entry.ChannelIndex, "manual_override"), nil
 						}
 					}

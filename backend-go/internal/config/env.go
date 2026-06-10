@@ -35,6 +35,8 @@ type EnvConfig struct {
 	ResponseHeaderTimeout int // 等待响应头超时时间（秒）
 	// 历史图片轮次限制
 	HistoricalImageTurnLimit int // 全局历史图片轮次限制（始终开启，默认 5，最低 3，渠道级 >0 覆盖）
+	// 驾驶舱 override 默认有效期
+	OverrideTTLMinutes int // 驾驶舱 override 默认有效期（分钟，1-1440，默认 30）
 	// 日志文件相关配置
 	LogDir        string
 	LogFile       string
@@ -83,6 +85,8 @@ func NewEnvConfig() *EnvConfig {
 		ResponseHeaderTimeout: clampInt(getEnvAsInt("RESPONSE_HEADER_TIMEOUT", 60), 30, 120), // 30-120 秒
 		// 历史图片轮次限制
 		HistoricalImageTurnLimit: getEnvAsInt("HISTORICAL_IMAGE_TURN_LIMIT", HistoricalImageTurnLimitDefault), // 始终开启，默认 5，最低 3
+		// 驾驶舱 override 默认有效期
+		OverrideTTLMinutes: clampInt(getEnvAsInt("OVERRIDE_TTL_MINUTES", 30), 1, 1440),
 		// 日志文件配置
 		LogDir:        getEnv("LOG_DIR", "logs"),
 		LogFile:       getEnv("LOG_FILE", "app.log"),

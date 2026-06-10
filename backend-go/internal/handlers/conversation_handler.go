@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/BenedictKing/ccx/internal/conversation"
 	"github.com/BenedictKing/ccx/internal/scheduler"
@@ -19,14 +20,25 @@ func GetConversations(deps *ConversationHandlerDeps) gin.HandlerFunc {
 		kindFilter := c.Query("kind")
 
 		conversations := deps.Tracker.GetActiveConversations(kindFilter)
+
+		// 同步清理孤儿 override（会话已过期但 override 仍存在的情况）
+		if kindFilter == "" {
+			activeIDs := make(map[string]bool, len(conversations))
+			for _, conv := range conversations {
+				activeIDs[conv.ID] = true
+			}
+			deps.OverrideManager.PurgeOrphans(activeIDs)
+		}
+
 		overrides := deps.OverrideManager.GetAllOverrides()
 
 		overridesResponse := make(map[string]interface{})
 		for id, override := range overrides {
 			overridesResponse[id] = gin.H{
-				"sequence":  override.Sequence,
-				"setAt":     override.SetAt,
-				"expiresAt": override.ExpiresAt,
+				"sequence":    override.Sequence,
+				"setAt":       override.SetAt,
+				"expiresAt":   override.ExpiresAt,
+				"isPerpetual": override.IsPerpetual,
 			}
 		}
 
@@ -52,6 +64,7 @@ func GetConversations(deps *ConversationHandlerDeps) gin.HandlerFunc {
 
 type SetOverrideRequest struct {
 	Sequence []conversation.ChannelEntry `json:"sequence" binding:"required,min=1"`
+	Duration *int                        `json:"duration,omitempty"` // 秒；nil=系统默认；-1=永不恢复
 }
 
 func SetConversationOverride(deps *ConversationHandlerDeps) gin.HandlerFunc {
@@ -74,7 +87,17 @@ func SetConversationOverride(deps *ConversationHandlerDeps) gin.HandlerFunc {
 			return
 		}
 
-		err := deps.OverrideManager.SetOverride(convID, conv.Kind, conv.RawUserID, req.Sequence)
+		// 解析 duration：nil=系统默认，-1=永不恢复，>0=自定义秒数
+		var overrideDuration time.Duration
+		if req.Duration != nil {
+			if *req.Duration == -1 {
+				overrideDuration = -1
+			} else if *req.Duration > 0 {
+				overrideDuration = time.Duration(*req.Duration) * time.Second
+			}
+		}
+
+		err := deps.OverrideManager.SetOverride(convID, conv.Kind, conv.RawUserID, req.Sequence, overrideDuration)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

@@ -32,6 +32,15 @@
         :placeholder="t('cockpit.searchPlaceholder')"
         class="conversation-search-field"
       />
+      <v-select
+        v-model="overrideDuration"
+        :items="durationOptions"
+        density="compact"
+        variant="outlined"
+        hide-details
+        class="override-duration-select"
+        :label="t('cockpit.overrideDuration')"
+      />
       <span class="system-status-indicator" :class="'status-' + systemStore.systemStatus">
         <span class="status-dot"></span>
         {{ systemStatusText }}
@@ -124,6 +133,7 @@ const conversations = ref<ConversationInfo[]>([])
 const overrides = ref<Record<string, SequenceOverrideInfo>>({})
 const kindFilter = ref('')
 const searchQuery = ref('')
+const overrideDuration = ref(0) // 0=系统默认, -1=永不恢复, >0=秒数
 const nowMs = ref(Date.now())
 const masonryEl = ref<HTMLElement | null>(null)
 const masonryColumnCount = ref(1)
@@ -195,6 +205,15 @@ const visibleConversations = computed(() => {
 })
 
 const overrideCount = computed(() => Object.keys(overrides.value).length)
+
+const durationOptions = computed(() => [
+  { title: t('cockpit.durationDefault'), value: 0 },
+  { title: '15 min', value: 900 },
+  { title: '30 min', value: 1800 },
+  { title: '1 hour', value: 3600 },
+  { title: '2 hours', value: 7200 },
+  { title: t('cockpit.durationNever'), value: -1 },
+])
 
 function updateMasonryColumnCount(width = masonryEl.value?.clientWidth || 0) {
   const fit = Math.floor((width + MASONRY_GAP) / (MASONRY_MIN_COLUMN_WIDTH + MASONRY_GAP))
@@ -330,7 +349,8 @@ function toggleExpand(id: string) {
 
 async function handleSetOverride(convId: string, sequence: ChannelSequenceEntry[]) {
   try {
-    await api.setConversationOverride(convId, sequence)
+    const duration = overrideDuration.value || undefined
+    await api.setConversationOverride(convId, sequence, duration)
     await fetchConversations()
   } catch (e) {
     console.error('[ConversationDashboard] set override error:', e)
@@ -403,6 +423,10 @@ fetchAllChannels()
 }
 .kind-filter-select {
   max-width: 160px;
+  flex: 0 0 auto;
+}
+.override-duration-select {
+  max-width: 180px;
   flex: 0 0 auto;
 }
 .conversation-search-field {

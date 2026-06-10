@@ -1,3 +1,25 @@
+## [Unreleased]
+
+### 改进
+
+- **驾驶舱 Override 有效期可配置** - 支持环境变量 `OVERRIDE_TTL_MINUTES`（默认 30 分钟）和前端下拉选择器（15min/30min/1h/2h/永不恢复）自定义 override 有效期
+- **Override Idle 续期** - 对话活跃时自动续期 override TTL，仅在闲置超过设定时间后才恢复默认调度
+- **Override 永不恢复选项** - 支持设置 override 永不过期，手动恢复前不会自动过期
+
+### 变更文件
+
+- `backend-go/internal/conversation/override.go` - IsPerpetual、per-call duration、RefreshOverrideForUser、SetDefaultTTL
+- `backend-go/internal/conversation/override_test.go` - 新增 8 个测试用例
+- `backend-go/internal/config/env.go` - 新增 OVERRIDE_TTL_MINUTES 环境变量
+- `backend-go/main.go` - 读取环境变量替换硬编码 30 分钟
+- `backend-go/internal/handlers/conversation_handler.go` - API body 新增 duration 参数，响应新增 isPerpetual
+- `backend-go/internal/scheduler/channel_scheduler.go` - SelectChannel 成功消费 override 时调用 RefreshOverrideForUser
+- `frontend/src/components/ConversationDashboard.vue` - 新增 override 持续时间下拉选择器
+- `frontend/src/components/ConversationCard.vue` - 永久 override 展示逻辑
+- `frontend/src/services/api-types.ts` - SequenceOverrideInfo 新增 isPerpetual
+- `frontend/src/services/api.ts` - setConversationOverride 新增 duration 参数
+- `frontend/src/i18n/messages-{zh-cn,en,id}.ts` - 新增 4 个 i18n key
+
 ## [v2.8.27] - 2026-06-10
 
 ### 新增

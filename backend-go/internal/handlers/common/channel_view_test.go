@@ -10,17 +10,17 @@ func boolPtr(b bool) *bool { return &b }
 
 func TestBuildChannelView_TuningBenchFields(t *testing.T) {
 	up := config.UpstreamConfig{
-		Name:                         "test-channel",
-		ServiceType:                  "openai",
-		RateLimitRPM:                 120,
-		RateLimitBurst:               20,
-		RateLimitMaxConcurrent:       8,
-		RateLimitAutoFromHeaders:     boolPtr(true),
-		RequestTimeoutMs:             60000,
-		StreamFirstContentTimeoutMs:  30000,
-		StreamInactivityTimeoutMs:    20000,
-		StreamToolCallIdleTimeoutMs:  45000,
-		HistoricalImageTurnLimit:     5,
+		Name:                        "test-channel",
+		ServiceType:                 "openai",
+		RateLimitRPM:                120,
+		RateLimitBurst:              20,
+		RateLimitMaxConcurrent:      8,
+		RateLimitAutoFromHeaders:    boolPtr(true),
+		RequestTimeoutMs:            60000,
+		StreamFirstContentTimeoutMs: 30000,
+		StreamInactivityTimeoutMs:   20000,
+		StreamToolCallIdleTimeoutMs: 45000,
+		HistoricalImageTurnLimit:    5,
 	}
 
 	view := BuildChannelView(up, 0)

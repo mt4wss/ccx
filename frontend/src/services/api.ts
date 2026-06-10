@@ -882,10 +882,14 @@ export class ApiService {
     return this.request(`/conversations${params}`)
   }
 
-  async setConversationOverride(id: string, sequence: ChannelSequenceEntry[]): Promise<void> {
+  async setConversationOverride(id: string, sequence: ChannelSequenceEntry[], duration?: number): Promise<void> {
+    const body: Record<string, unknown> = { sequence }
+    if (duration !== undefined) {
+      body.duration = duration
+    }
     await this.request(`/conversations/${id}/override`, {
       method: 'POST',
-      body: JSON.stringify({ sequence })
+      body: JSON.stringify(body)
     })
   }
 

@@ -19,6 +19,18 @@ type ChannelSequenceOverride struct {
 	Sequence       []ChannelEntry `json:"sequence"`
 	SetAt          time.Time      `json:"setAt"`
 	ExpiresAt      time.Time      `json:"expiresAt"`
+	IsPerpetual    bool           `json:"isPerpetual,omitempty"` // 永不过期（手动恢复前不会自动过期）
+	ttlDuration    time.Duration  `json:"-"`                     // 原始有效期（续期时使用，不序列化）
+}
+
+// clone 返回 override 的深拷贝（用于返回快照，避免并发数据竞争）。
+func (o *ChannelSequenceOverride) clone() *ChannelSequenceOverride {
+	c := *o
+	if o.Sequence != nil {
+		c.Sequence = make([]ChannelEntry, len(o.Sequence))
+		copy(c.Sequence, o.Sequence)
+	}
+	return &c
 }
 
 type OverrideManager struct {
@@ -40,7 +52,9 @@ func NewOverrideManager(ttl time.Duration) *OverrideManager {
 	return om
 }
 
-func (om *OverrideManager) SetOverride(conversationID, kind, userID string, sequence []ChannelEntry) error {
+// SetOverride 设置会话级渠道序列覆盖。
+// overrideDuration: 0=使用系统默认 TTL；<0（如 -1）=永不过期；>0=自定义时长。
+func (om *OverrideManager) SetOverride(conversationID, kind, userID string, sequence []ChannelEntry, overrideDuration time.Duration) error {
 	if len(sequence) == 0 {
 		return fmt.Errorf("sequence cannot be empty")
 	}
@@ -58,15 +72,30 @@ func (om *OverrideManager) SetOverride(conversationID, kind, userID string, sequ
 		UserID:         userID,
 		Sequence:       sequence,
 		SetAt:          now,
-		ExpiresAt:      now.Add(om.ttl),
+	}
+
+	switch {
+	case overrideDuration < 0:
+		override.IsPerpetual = true
+	case overrideDuration > 0:
+		override.ExpiresAt = now.Add(overrideDuration)
+		override.ttlDuration = overrideDuration
+	default:
+		override.ExpiresAt = now.Add(om.ttl)
+		override.ttlDuration = om.ttl
 	}
 
 	om.overrides[conversationID] = override
 	compositeKey := kind + ":" + userID
 	om.userIndex[compositeKey] = conversationID
 
-	log.Printf("[OverrideManager-Set] 设置覆盖: conv=%s, kind=%s, 序列长度=%d, 过期=%s",
-		conversationID, kind, len(sequence), override.ExpiresAt.Format("15:04:05"))
+	if override.IsPerpetual {
+		log.Printf("[OverrideManager-Set] 设置覆盖: conv=%s, kind=%s, 序列长度=%d, 永不过期",
+			conversationID, kind, len(sequence))
+	} else {
+		log.Printf("[OverrideManager-Set] 设置覆盖: conv=%s, kind=%s, 序列长度=%d, 过期=%s",
+			conversationID, kind, len(sequence), override.ExpiresAt.Format("15:04:05"))
+	}
 
 	return nil
 }
@@ -79,10 +108,10 @@ func (om *OverrideManager) GetOverride(conversationID string) (*ChannelSequenceO
 	if !ok {
 		return nil, false
 	}
-	if time.Now().After(override.ExpiresAt) {
+	if !override.IsPerpetual && time.Now().After(override.ExpiresAt) {
 		return nil, false
 	}
-	return override, true
+	return override.clone(), true
 }
 
 func (om *OverrideManager) GetOverrideForUser(kind, userID string) ([]ChannelEntry, bool) {
@@ -99,7 +128,7 @@ func (om *OverrideManager) GetOverrideForUser(kind, userID string) ([]ChannelEnt
 	if !ok {
 		return nil, false
 	}
-	if time.Now().After(override.ExpiresAt) {
+	if !override.IsPerpetual && time.Now().After(override.ExpiresAt) {
 		return nil, false
 	}
 	return override.Sequence, true
@@ -146,23 +175,71 @@ func (om *OverrideManager) GetAllOverrides() map[string]*ChannelSequenceOverride
 	now := time.Now()
 	result := make(map[string]*ChannelSequenceOverride, len(om.overrides))
 	for id, override := range om.overrides {
-		if now.Before(override.ExpiresAt) {
-			result[id] = override
+		if override.IsPerpetual || now.Before(override.ExpiresAt) {
+			result[id] = override.clone()
 		}
 	}
 	return result
 }
 
+// RefreshTTL 续期指定会话的 override TTL（永不过期的 override 不受影响）。
+// 使用该 override 原始设置的有效期续期，而非系统默认值。
 func (om *OverrideManager) RefreshTTL(conversationID string) bool {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
 	override, ok := om.overrides[conversationID]
+	if !ok || override.IsPerpetual {
+		return false
+	}
+	override.ExpiresAt = time.Now().Add(override.ttlDuration)
+	return true
+}
+
+// RefreshOverrideForUser 按 kind:userID 续期 override TTL（供调度器 idle 续期）。
+// 使用该 override 原始设置的有效期续期，而非系统默认值。
+func (om *OverrideManager) RefreshOverrideForUser(kind, userID string) bool {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	compositeKey := kind + ":" + userID
+	convID, ok := om.userIndex[compositeKey]
 	if !ok {
 		return false
 	}
-	override.ExpiresAt = time.Now().Add(om.ttl)
+	override, ok := om.overrides[convID]
+	if !ok || override.IsPerpetual {
+		return false
+	}
+	override.ExpiresAt = time.Now().Add(override.ttlDuration)
 	return true
+}
+
+// SetDefaultTTL 动态更新系统默认 TTL。
+func (om *OverrideManager) SetDefaultTTL(ttl time.Duration) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+	om.ttl = ttl
+}
+
+// PurgeOrphans 清理不属于任何活跃会话的孤儿 override。
+// 当 ConversationTracker 过期清理会话后，调用此方法同步移除对应的 override。
+func (om *OverrideManager) PurgeOrphans(activeConversationIDs map[string]bool) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	var removed int
+	for id, override := range om.overrides {
+		if !activeConversationIDs[id] {
+			compositeKey := override.Kind + ":" + override.UserID
+			delete(om.userIndex, compositeKey)
+			delete(om.overrides, id)
+			removed++
+		}
+	}
+	if removed > 0 {
+		log.Printf("[OverrideManager-PurgeOrphans] 清理 %d 个孤儿覆盖, 剩余 %d", removed, len(om.overrides))
+	}
 }
 
 func (om *OverrideManager) Stop() {
@@ -191,7 +268,7 @@ func (om *OverrideManager) cleanup() {
 	var removed int
 
 	for id, override := range om.overrides {
-		if now.After(override.ExpiresAt) {
+		if !override.IsPerpetual && now.After(override.ExpiresAt) {
 			compositeKey := override.Kind + ":" + override.UserID
 			delete(om.userIndex, compositeKey)
 			delete(om.overrides, id)
