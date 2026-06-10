@@ -592,6 +592,7 @@
           </v-btn>
           <v-btn color="primary" variant="flat" class="cb-dialog-btn cb-dialog-btn-primary" :loading="cbSaving" @click="saveCircuitBreaker">
             {{ t('app.actions.confirm') }}
+            <span class="ml-1.5 text-xs opacity-60">{{ isMac ? '⌘Enter' : 'Ctrl+Enter' }}</span>
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -1849,6 +1850,26 @@ const saveCircuitBreaker = async () => {
   }
 }
 
+// 平台检测
+const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
+
+// 调校台弹窗键盘快捷键
+const handleCircuitBreakerKeydown = (event: KeyboardEvent) => {
+  if (!circuitBreakerDialogOpen.value) return
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    circuitBreakerDialogOpen.value = false
+    return
+  }
+
+  // Cmd/Ctrl+Enter 确认提交
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.shiftKey) {
+    event.preventDefault()
+    saveCircuitBreaker()
+  }
+}
+
 // 主题管理
 const toggleDarkMode = () => {
   const newMode = preferencesStore.darkModePreference === 'dark' ? 'light' : 'dark'
@@ -2097,6 +2118,11 @@ const handlePref = () => {
 }
 mediaQuery?.addEventListener('change', handlePref)
 
+// 注册调校台键盘快捷键（setup 阶段注册，onUnmounted 清理）
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', handleCircuitBreakerKeydown)
+}
+
 // 初始化
 onMounted(async () => {
   // 初始化复古像素主题
@@ -2222,6 +2248,9 @@ onUnmounted(() => {
   channelStore.stopAutoRefresh()
   stopAllCapabilityPolling()
   mediaQuery?.removeEventListener('change', handlePref)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleCircuitBreakerKeydown)
+  }
 })
 </script>
 
